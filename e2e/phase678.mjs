@@ -18,7 +18,7 @@ await page.waitForTimeout(800);
 await page.screenshot({ path: `${OUT}/p7-puzzle.png` });
 // make a wrong move: pick any legal move that's not the best (via tap-to-move)
 const res = await page.evaluate(async () => {
-  const req = indexedDB.open('chess-review-tuo_username');
+  const req = indexedDB.open('chess-review-katileasy');
   const db = await new Promise((r) => (req.onsuccess = () => r(req.result)));
   return await new Promise((r) => { const q = db.transaction('puzzles').objectStore('puzzles').getAll(); q.onsuccess = () => r(q.result.length); });
 });

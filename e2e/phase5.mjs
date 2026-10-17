@@ -15,7 +15,7 @@ await page.waitForFunction(() => /Analyzing 3\//.test(document.body.innerText), 
 console.log('now:', await page.locator('text=/Analyzing \\d+\\/\\d+/').innerText());
 console.log('accuracies shown:', await page.locator('main li .tabular-nums.text-lg').count());
 const tags = await page.evaluate(async () => {
-  const req = indexedDB.open('chess-review-tuo_username');
+  const req = indexedDB.open('chess-review-katileasy');
   const db = await new Promise((r) => (req.onsuccess = () => r(req.result)));
   const all = await new Promise((r) => { const q = db.transaction('analyses').objectStore('analyses').getAll(); q.onsuccess = () => r(q.result); });
   const c = {}; let mine = 0;

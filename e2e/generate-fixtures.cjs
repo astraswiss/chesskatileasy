@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { Chess } = require('chess.js');
 
-const USER = 'TUO_USERNAME';
+const USER = 'katileasy';
 const COUNT = Number(process.argv[2] || 24);
 const OUT = path.join(__dirname, 'fixtures');
 fs.mkdirSync(OUT, { recursive: true });

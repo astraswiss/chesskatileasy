@@ -17,7 +17,7 @@ Stockfish (WASM, in a Web Worker), and everything is cached in IndexedDB.
 
 1. Set your username in `src/config.ts`:
    ```ts
-   export const USERNAME = "your_chesscom_name";
+   export const USERNAME = "katileasy";
    ```
 2. Install and run (Node 20+):
    ```bash

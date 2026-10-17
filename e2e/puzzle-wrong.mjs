@@ -5,7 +5,7 @@ const { browser, page, errors } = await launch({ profile: process.argv[2] });
 await page.goto('http://localhost:5173/#/puzzles');
 await page.waitForSelector('text=Find the best move', { timeout: 20000 });
 const ps = await page.evaluate(async () => {
-  const req = indexedDB.open('chess-review-tuo_username');
+  const req = indexedDB.open('chess-review-katileasy');
   const db = await new Promise((r) => (req.onsuccess = () => r(req.result)));
   return await new Promise((r) => { const q = db.transaction('puzzles').objectStore('puzzles').getAll(); q.onsuccess = () => r(q.result); });
 });

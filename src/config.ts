@@ -1,5 +1,5 @@
 /** Your chess.com username. */
-export const USERNAME = "TUO_USERNAME";
+export const USERNAME = "katileasy";
 
 /** Default engine depth for manual analysis (adjustable in Settings). */
 export const DEFAULT_DEPTH = 16;

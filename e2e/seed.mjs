@@ -5,7 +5,7 @@ const { browser, page } = await launch({ profile });
 await page.goto('http://localhost:5173/');
 await page.waitForSelector('main li');
 await page.evaluate(async () => {
-  const req = indexedDB.open('chess-review-tuo_username');
+  const req = indexedDB.open('chess-review-katileasy');
   const db = await new Promise((r) => (req.onsuccess = () => r(req.result)));
   await new Promise((r) => { const tx = db.transaction('meta', 'readwrite'); tx.objectStore('meta').put({ depth: 16, autoAnalyze: true, autoMaxPerSession: 1000 }, 'settings'); tx.oncomplete = r; });
 });
