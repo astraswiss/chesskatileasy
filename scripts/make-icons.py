@@ -1,12 +1,11 @@
 # Generates the app icons in public/icons (run: python3 scripts/make-icons.py)
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw
 import os
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'public', 'icons')
-FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 S = 1024  # master size
 
-def master(knight_scale=0.70):
+def master():
     # Diagonal green gradient background with a faint checkerboard.
     top, bottom = (150, 200, 90), (70, 125, 45)
     img = Image.new('RGB', (S, S))
@@ -26,24 +25,7 @@ def master(knight_scale=0.70):
                 d.rectangle([i * c, j * c, (i + 1) * c, (j + 1) * c], fill=(0, 0, 0, 18))
     img = Image.alpha_composite(img, checker)
 
-    font = ImageFont.truetype(FONT, int(S * knight_scale))
-    pos = (S / 2, S / 2 + S * 0.02)
-    # soft shadow
-    shadow = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).text((pos[0] + S * 0.015, pos[1] + S * 0.025), '♞', font=font, fill=(0, 0, 0, 110), anchor='mm')
-    img = Image.alpha_composite(img, shadow.filter(ImageFilter.GaussianBlur(S * 0.02)))
-    # knight: dark outline + white fill
-    k = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    kd = ImageDraw.Draw(k)
-    kd.text(pos, '♞', font=font, fill=(255, 255, 255, 255), anchor='mm', stroke_width=int(S * 0.012), stroke_fill=(30, 45, 20, 255))
-    img = Image.alpha_composite(img, k)
-    # small "review" accent: star badge bottom-right
-    b = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    bd = ImageDraw.Draw(b)
-    cx, cy, r = S * 0.76, S * 0.76, S * 0.11
-    bd.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(27, 172, 166, 255), outline=(255, 255, 255, 255), width=int(S * 0.018))
-    bd.text((cx, cy + S * 0.005), '!!', font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', int(r * 1.15)), fill='white', anchor='mm')
-    return Image.alpha_composite(img, b)
+    return img
 
 def rounded(img, radius_ratio=0.22):
     mask = Image.new('L', img.size, 0)
@@ -52,8 +34,8 @@ def rounded(img, radius_ratio=0.22):
     out.paste(img, (0, 0), mask)
     return out
 
-full = master()               # full-bleed square (iOS masks it itself)
-safe = master(knight_scale=0.56)  # smaller content for Android maskable safe zone
+full = master()  # full-bleed square (iOS masks it itself)
+safe = full
 
 def save(img, size, name):
     img.resize((size, size), Image.LANCZOS).save(os.path.join(OUT, name))
