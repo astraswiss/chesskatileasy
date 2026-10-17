@@ -6,6 +6,8 @@ import { TabBar } from './components/TabBar';
 import { HomeScreen } from './screens/HomeScreen';
 import { ReviewScreen } from './screens/ReviewScreen';
 import { initSettings } from './lib/settings';
+import { SettingsScreen } from './screens/SettingsScreen';
+import { startAutoAnalysis } from './analysis/auto';
 import { EmptyState } from './components/ui';
 import { Header } from './components/Header';
 
@@ -18,10 +20,16 @@ function Placeholder({ title }: { title: string }) {
   );
 }
 
+let booted = false;
+
 export default function App() {
   const route = useRoute();
   useEffect(() => {
-    void Promise.all([initSettings(), initAnalysisIndex()]).then(initGames);
+    if (booted) return;
+    booted = true;
+    void Promise.all([initSettings(), initAnalysisIndex()])
+      .then(initGames)
+      .then(startAutoAnalysis);
   }, []);
 
   const [top] = route.segments;
@@ -35,6 +43,9 @@ export default function App() {
       break;
     case 'stats':
       screen = <Placeholder title="Stats" />;
+      break;
+    case 'settings':
+      screen = <SettingsScreen />;
       break;
     case 'game':
       screen = <ReviewScreen key={route.segments[1]} gameId={route.segments[1] ?? ''} />;
