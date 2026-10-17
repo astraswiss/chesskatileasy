@@ -17,7 +17,7 @@ export class ApiError extends Error {
 
 async function getJson<T>(url: string): Promise<T> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    throw new ApiError('offline', 'You are offline.');
+    throw new ApiError('offline', 'No connection.');
   }
   let res: Response;
   try {

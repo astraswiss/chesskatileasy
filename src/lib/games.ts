@@ -59,6 +59,7 @@ export async function initGames() {
   gamesStore.set({ archives: archives ?? [], loadedMonths: loadedMonths ?? 0 });
   await reloadFromDb();
   void refreshGames();
+  window.addEventListener('online', () => void refreshGames());
 }
 
 let refreshPromise: Promise<void> | null = null;
