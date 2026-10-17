@@ -11,10 +11,11 @@ export interface BoardProps {
   arrows?: Arrow[];
   onDrop?: (from: string, to: string, piece: string) => boolean;
   highlight?: Record<string, CSSProperties>;
+  onSquareClick?: (square: string) => void;
   id?: string;
 }
 
-export function Board({ fen, orientation, lastMove, badge, arrows = [], onDrop, highlight, id = 'board' }: BoardProps) {
+export function Board({ fen, orientation, lastMove, badge, arrows = [], onDrop, highlight, onSquareClick, id = 'board' }: BoardProps) {
   const squareStyles = useMemo(() => {
     const s: Record<string, CSSProperties> = {};
     if (lastMove) {
@@ -41,6 +42,7 @@ export function Board({ fen, orientation, lastMove, badge, arrows = [], onDrop, 
           onPieceDrop: onDrop
             ? ({ sourceSquare, targetSquare, piece }) => (targetSquare ? onDrop(sourceSquare, targetSquare, piece.pieceType) : false)
             : undefined,
+          onSquareClick: onSquareClick ? ({ square }) => onSquareClick(square) : undefined,
           squareRenderer: badge
             ? ({ square, children }) => (
                 <div className="relative h-full w-full">

@@ -82,11 +82,13 @@ export async function getPuzzle(id: string) {
 export async function putPuzzle(p: Puzzle) {
   await (await db()).put('puzzles', p);
 }
-/** Adds puzzles that don't exist yet (never overwrites spaced-repetition progress). */
+/** Adds new puzzles; for existing ones refreshes the position data but keeps spaced-repetition progress. */
 export async function addPuzzles(ps: Puzzle[]) {
   const tx = (await db()).transaction('puzzles', 'readwrite');
   for (const p of ps) {
-    if (!(await tx.store.getKey(p.id))) await tx.store.put(p);
+    const old = await tx.store.get(p.id);
+    if (!old) await tx.store.put(p);
+    else await tx.store.put({ ...old, bestUci: p.bestUci, bestSan: p.bestSan, bestWin: p.bestWin, tags: p.tags, classification: p.classification });
   }
   await tx.done;
 }

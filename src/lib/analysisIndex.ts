@@ -26,7 +26,7 @@ export async function initAnalysisIndex() {
     for (const a of await getAllAnalyses()) idx[a.gameId] = { ...a.accuracy, depth: a.depth };
     await setMeta('accIndex', idx);
   }
-  analysisIndex.set({ byGame: idx });
+  analysisIndex.set((s) => ({ byGame: idx!, version: s.version + 1 }));
 }
 
 /** Saves an analysis and updates the index (single write path for analyses). */

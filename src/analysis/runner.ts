@@ -1,8 +1,8 @@
 import type { Game, GameAnalysis, PositionEval } from '../types/app';
 import { getEngine } from '../engine/engine';
 import { parseGame } from '../lib/pgn';
-import { getAnalysis } from '../lib/db';
-import { saveAnalysis } from '../lib/analysisIndex';
+import { getAllAnalyses, getAllGames, getAnalysis, putAnalysis, setMeta } from '../lib/db';
+import { initAnalysisIndex, saveAnalysis } from '../lib/analysisIndex';
 import { ANALYSIS_VERSION, buildAnalysis, terminalEval } from './build';
 
 export interface RunOptions {
@@ -51,4 +51,27 @@ export async function loadAnalysis(game: Game): Promise<GameAnalysis | undefined
   await saveAnalysis(rebuilt);
   onAnalysisSaved.forEach((fn) => fn(game, rebuilt));
   return rebuilt;
+}
+
+let migration: Promise<void> | null = null;
+
+/**
+ * Re-classifies analyses saved by an older version of the classification logic,
+ * reusing the stored engine evaluations (no engine work needed).
+ */
+export function migrateAnalyses(): Promise<void> {
+  return (migration ??= (async () => {
+    const stale = (await getAllAnalyses()).filter((a) => a.version !== ANALYSIS_VERSION);
+    if (stale.length === 0) return;
+    const games = new Map((await getAllGames()).map((g) => [g.id, g]));
+    for (const a of stale) {
+      const g = games.get(a.gameId);
+      if (!g) continue;
+      const rebuilt = buildAnalysis(g, a.positions, a.depth);
+      await putAnalysis(rebuilt);
+      for (const fn of onAnalysisSaved) await fn(g, rebuilt);
+    }
+    await setMeta('accIndex', undefined);
+    await initAnalysisIndex();
+  })());
 }

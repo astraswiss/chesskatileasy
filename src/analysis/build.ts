@@ -15,7 +15,7 @@ import { gamePhases } from './phase';
 import { gameAccuracy, moveAccuracy, scoreToCp, winPercent } from './winprob';
 
 /** Bump when classification logic changes: stored analyses are rebuilt from raw evals. */
-export const ANALYSIS_VERSION = 3;
+export const ANALYSIS_VERSION = 4;
 
 const BOOK_MAX_PLIES = 10;
 
@@ -141,7 +141,8 @@ export function buildAnalysis(game: Game, positions: PositionEval[], depth: numb
       if (missedTactic(m.before, m.after, before, after, m.color)) tags.push('missed-tactic');
       if (oppJustBlundered) tags.push('missed-punish');
       const lowClock = !tc.daily && tc.base !== undefined && clock !== undefined && clock < tc.base * 0.1;
-      const rushed = !tc.daily && timeSpent !== undefined && timeSpent < 2 && loss >= THRESHOLDS.inaccuracy;
+      // In bullet almost every move is < 2 s, so "rushed" only applies to slower time controls.
+      const rushed = !tc.daily && (tc.base ?? 0) >= 180 && timeSpent !== undefined && timeSpent < 2 && loss >= THRESHOLDS.inaccuracy;
       if (lowClock || rushed) tags.push('time-trouble');
       if (phase === 'endgame' && winBefore >= 70 && winAfter < 60) tags.push('endgame-technique');
       if (phase === 'opening') tags.push('opening-prep');

@@ -1,24 +1,21 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useRoute } from './lib/router';
 import { initGames } from './lib/games';
 import { initAnalysisIndex } from './lib/analysisIndex';
-import { TabBar } from './components/TabBar';
-import { HomeScreen } from './screens/HomeScreen';
-import { ReviewScreen } from './screens/ReviewScreen';
 import { initSettings } from './lib/settings';
-import { SettingsScreen } from './screens/SettingsScreen';
+import { backfillPuzzles, savePuzzlesFor } from './lib/puzzles';
 import { startAutoAnalysis } from './analysis/auto';
-import { EmptyState } from './components/ui';
-import { Header } from './components/Header';
+import { migrateAnalyses, onAnalysisSaved } from './analysis/runner';
+import { TabBar } from './components/TabBar';
+import { Spinner } from './components/ui';
+import { HomeScreen } from './screens/HomeScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="pb-tabbar">
-      <Header title={title} />
-      <EmptyState title="Coming soon" />
-    </div>
-  );
-}
+// Heavier screens (charts, board) are split into their own chunks.
+const ReviewScreen = lazy(() => import('./screens/ReviewScreen').then((m) => ({ default: m.ReviewScreen })));
+const CoachScreen = lazy(() => import('./screens/CoachScreen').then((m) => ({ default: m.CoachScreen })));
+const PuzzlesScreen = lazy(() => import('./screens/PuzzlesScreen').then((m) => ({ default: m.PuzzlesScreen })));
+const StatsScreen = lazy(() => import('./screens/StatsScreen').then((m) => ({ default: m.StatsScreen })));
 
 let booted = false;
 
@@ -27,22 +24,25 @@ export default function App() {
   useEffect(() => {
     if (booted) return;
     booted = true;
+    onAnalysisSaved.add(savePuzzlesFor);
     void Promise.all([initSettings(), initAnalysisIndex()])
       .then(initGames)
-      .then(startAutoAnalysis);
+      .then(migrateAnalyses)
+      .then(startAutoAnalysis)
+      .then(backfillPuzzles);
   }, []);
 
   const [top] = route.segments;
   let screen;
   switch (top) {
     case 'coach':
-      screen = <Placeholder title="Coach" />;
+      screen = <CoachScreen />;
       break;
     case 'puzzles':
-      screen = <Placeholder title="Puzzles" />;
+      screen = <PuzzlesScreen />;
       break;
     case 'stats':
-      screen = <Placeholder title="Stats" />;
+      screen = <StatsScreen />;
       break;
     case 'settings':
       screen = <SettingsScreen />;
@@ -56,7 +56,7 @@ export default function App() {
   const showTabs = top !== 'game';
   return (
     <>
-      {screen}
+      <Suspense fallback={<div className="flex justify-center py-24"><Spinner className="h-8 w-8" /></div>}>{screen}</Suspense>
       {showTabs && <TabBar />}
     </>
   );

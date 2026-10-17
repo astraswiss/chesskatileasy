@@ -1,0 +1,36 @@
+import { launch } from './mock.mjs';
+const OUT = process.argv[3] ?? '.';
+const { browser, page, errors } = await launch({ profile: process.argv[2] });
+await page.goto('http://localhost:5173/#/coach');
+await page.waitForSelector('text=Top weaknesses', { timeout: 15000 });
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${OUT}/p6-coach.png`, fullPage: true });
+await page.locator('text=/See the \\d+ positions/').first().click();
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/p6-detail.png` });
+await page.locator('main li button').first().click();
+await page.waitForSelector('text=/ is /', { timeout: 10000 });
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/p6-jump.png` });
+await page.goto('http://localhost:5173/#/puzzles');
+await page.waitForSelector('text=Find the best move', { timeout: 15000 });
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${OUT}/p7-puzzle.png` });
+// make a wrong move: pick any legal move that's not the best (via tap-to-move)
+const res = await page.evaluate(async () => {
+  const req = indexedDB.open('chess-review-tuo_username');
+  const db = await new Promise((r) => (req.onsuccess = () => r(req.result)));
+  return await new Promise((r) => { const q = db.transaction('puzzles').objectStore('puzzles').getAll(); q.onsuccess = () => r(q.result.length); });
+});
+console.log('puzzles in db', res);
+await page.click('text=Solution');
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/p7-solution.png` });
+await page.click('text=Next puzzle');
+await page.waitForTimeout(500);
+await page.goto('http://localhost:5173/#/stats');
+await page.waitForSelector('text=Rating history');
+await page.waitForTimeout(1000);
+await page.screenshot({ path: `${OUT}/p8-stats.png`, fullPage: true });
+console.log('errors', errors);
+await browser.close();
