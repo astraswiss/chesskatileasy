@@ -206,36 +206,45 @@ function WeaknessDetail({ tag, report, loading }: { tag: PatternTag; report: Coa
           <>
             <p className="mb-3 text-sm text-muted">{w.text}</p>
             <ul className="flex flex-col gap-2">
-              {w.occurrences.map((o) => (
-                <li key={`${o.gameId}:${o.ply}`}>
-                  <button
-                    onClick={() => navigate(`/game/${o.gameId}?ply=${o.ply + 1}`)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface p-3 text-left active:bg-surface-2"
-                  >
-                    <ClassIcon c={o.move.classification} size={28} />
-                    <div className="min-w-0 flex-1">
-                      {tag === 'missed-punish' && o.prev && (
-                        <div className="mb-0.5 text-xs text-muted">
-                          {o.game.oppName} blundered with{' '}
-                          <b className="text-[#ca3431]">
-                            {Math.floor(o.prev.ply / 2) + 1}{o.prev.color === 'white' ? '.' : '...'} {o.prev.san}??
-                          </b>
-                          , you replied:
+              {w.occurrences.map((o) => {
+                const num = (m: { ply: number; color: string }) => `${Math.floor(m.ply / 2) + 1}${m.color === 'white' ? '.' : '...'}`;
+                // For a missed punish, open the position right after the opponent's blunder
+                // (before my move), so the board shows their blunder and the arrow shows the punish.
+                const punish = tag === 'missed-punish' && o.prev;
+                return (
+                  <li key={`${o.gameId}:${o.ply}`}>
+                    <button
+                      onClick={() => navigate(`/game/${o.gameId}?ply=${punish ? o.ply : o.ply + 1}`)}
+                      className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface p-3 text-left active:bg-surface-2"
+                    >
+                      <ClassIcon c={punish ? o.prev!.classification : o.move.classification} size={28} />
+                      <div className="min-w-0 flex-1">
+                        {punish ? (
+                          <>
+                            <div className="font-medium">
+                              {o.game.oppName}: {num(o.prev!)} {o.prev!.san}
+                              <span className="ml-1.5 text-sm font-normal text-loss">−{Math.round(o.prev!.loss * 100)}% for them</span>
+                            </div>
+                            <div className="text-sm text-muted">
+                              Punish: <b className="text-win">{o.move.bestSan}</b> · you played {num(o.move)} {o.move.san}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="font-medium">
+                            {num(o.move)} {o.move.san}
+                            {o.move.bestSan && <span className="text-muted"> · best {o.move.bestSan}</span>}
+                          </div>
+                        )}
+                        <div className="truncate text-xs text-muted">
+                          vs {o.game.oppName} · {formatDate(o.game.endTime)} · {o.move.phase}
+                          {o.move.clock !== undefined && ` · ${Math.round(o.move.clock)}s left`}
                         </div>
-                      )}
-                      <div className="font-medium">
-                        {Math.floor(o.ply / 2) + 1}{o.move.color === 'white' ? '.' : '...'} {o.move.san}
-                        {o.move.bestSan && <span className="text-muted"> · best {o.move.bestSan}</span>}
                       </div>
-                      <div className="truncate text-xs text-muted">
-                        vs {o.game.oppName} · {formatDate(o.game.endTime)} · {o.move.phase}
-                        {o.move.clock !== undefined && ` · ${Math.round(o.move.clock)}s left`}
-                      </div>
-                    </div>
-                    <span className="text-sm font-semibold tabular-nums text-loss">−{Math.round(o.move.loss * 100)}%</span>
-                  </button>
-                </li>
-              ))}
+                      <span className="text-sm font-semibold tabular-nums text-loss">−{Math.round(o.move.loss * 100)}%</span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}
