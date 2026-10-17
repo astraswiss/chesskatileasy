@@ -214,6 +214,15 @@ function WeaknessDetail({ tag, report, loading }: { tag: PatternTag; report: Coa
                   >
                     <ClassIcon c={o.move.classification} size={28} />
                     <div className="min-w-0 flex-1">
+                      {tag === 'missed-punish' && o.prev && (
+                        <div className="mb-0.5 text-xs text-muted">
+                          {o.game.oppName} blundered with{' '}
+                          <b className="text-[#ca3431]">
+                            {Math.floor(o.prev.ply / 2) + 1}{o.prev.color === 'white' ? '.' : '...'} {o.prev.san}??
+                          </b>
+                          , you replied:
+                        </div>
+                      )}
                       <div className="font-medium">
                         {Math.floor(o.ply / 2) + 1}{o.move.color === 'white' ? '.' : '...'} {o.move.san}
                         {o.move.bestSan && <span className="text-muted"> · best {o.move.bestSan}</span>}

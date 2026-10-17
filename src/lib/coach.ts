@@ -8,6 +8,8 @@ export interface Occurrence {
   gameId: string;
   ply: number;
   move: MoveAnalysis;
+  /** The opponent's move just before mine (shown for "missed punish"). */
+  prev?: MoveAnalysis;
   game: Game;
 }
 
@@ -102,7 +104,7 @@ export function buildCoachReport(pairs: Pair[]): CoachReport {
         e.totalLoss += m.loss;
         e.count++;
         e.games.add(game.id);
-        e.occ.push({ gameId: game.id, ply: m.ply, move: m, game });
+        e.occ.push({ gameId: game.id, ply: m.ply, move: m, prev: analysis.moves[m.ply - 1], game });
         byTag.set(t, e);
         if (t === 'opening-prep') openingLoss.set(game.opening, (openingLoss.get(game.opening) ?? 0) + m.loss);
       }
