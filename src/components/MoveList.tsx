@@ -17,8 +17,13 @@ export function MoveList({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = ref.current?.querySelector<HTMLElement>('[data-active="true"]');
-    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Scroll only the list itself (scrollIntoView would also scroll the page).
+    const box = ref.current;
+    const el = box?.querySelector<HTMLElement>('[data-active="true"]');
+    if (!box || !el) return;
+    const top = el.offsetTop; // box is position:relative, so this is relative to the list
+    if (top < box.scrollTop) box.scrollTop = top - 4;
+    else if (top + el.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = top + el.offsetHeight - box.clientHeight + 4;
   }, [current]);
 
   const rows: number[] = [];
@@ -42,7 +47,7 @@ export function MoveList({
   };
 
   return (
-    <div ref={ref} className="max-h-64 overflow-y-auto rounded-lg border border-border bg-surface p-1 lg:max-h-[340px]">
+    <div ref={ref} className="relative max-h-64 overflow-y-auto rounded-lg border border-border bg-surface p-1 lg:max-h-[340px]">
       {rows.length === 0 && <div className="p-3 text-sm text-muted">No moves.</div>}
       <div className="grid grid-cols-[2.25rem_1fr_1fr] gap-x-1">
         {rows.map((i) => (
