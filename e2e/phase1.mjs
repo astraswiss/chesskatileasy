@@ -1,0 +1,21 @@
+import { launch } from './mock.mjs';
+const BASE = process.env.APP_URL ?? 'http://localhost:5173/';
+const OUT = process.argv[2] ?? '.';
+const { browser, page, errors } = await launch();
+await page.goto(BASE);
+await page.waitForSelector('text=Load older games', { timeout: 15000 }).catch(() => {});
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${OUT}/p1-home.png` });
+console.log('cards:', await page.locator('main li').count());
+await page.click('text=Load older games');
+await page.waitForTimeout(800);
+console.log('cards after more:', await page.locator('main li').count());
+await page.click('button:has-text("Losses")');
+console.log('losses:', await page.locator('main li').count());
+await page.screenshot({ path: `${OUT}/p1-filter.png` });
+// reload: cached games should render immediately
+await page.reload();
+await page.waitForTimeout(300);
+console.log('cached after reload:', await page.locator('main li').count());
+console.log('errors', errors);
+await browser.close();

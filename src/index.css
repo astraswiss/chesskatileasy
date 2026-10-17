@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #161512;
+  --color-surface: #262421;
+  --color-surface-2: #312e2b;
+  --color-border: #3d3a36;
+  --color-muted: #9a9894;
+  --color-accent: #81b64c;
+  --color-win: #81b64c;
+  --color-loss: #e05252;
+  --color-draw: #9a9894;
+}
+
+:root {
+  color-scheme: dark;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --tabbar-h: 60px;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: #e8e6e3;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+.pt-safe { padding-top: var(--safe-top); }
+.pb-safe { padding-bottom: var(--safe-bottom); }
+#root { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+.px-safe { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+.pb-tabbar { padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 12px); }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+button { cursor: pointer; touch-action: manipulation; }
+button:disabled { cursor: default; }
