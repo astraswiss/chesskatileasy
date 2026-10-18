@@ -27,6 +27,17 @@ await tap(p.bestUci.slice(0, 2), p.bestUci.slice(2, 4));
 await page.waitForSelector('text=/Correct/', { timeout: 30000 });
 console.log('verdict:', (await page.locator('text=/Correct/').first().innerText()).replace(/\n/g, ' '));
 await page.screenshot({ path: `${OUT}/p7-correct.png` });
+// keep playing after solving: a reply for the other side, then reset
+c.move({ from: p.bestUci.slice(0, 2), to: p.bestUci.slice(2, 4), promotion: p.bestUci[4] });
+const reply = c.moves({ verbose: true })[0];
+await tap(reply.from, reply.to);
+await page.waitForTimeout(400);
+const pieceAt = (sq) => page.locator(`[data-square="${sq}"] [data-piece]`).count();
+console.log('explore move', reply.san, 'piece on target:', await pieceAt(reply.to));
+await page.screenshot({ path: `${OUT}/p7-explore.png` });
+await page.click('text=Reset position');
+await page.waitForTimeout(400);
+console.log('after reset, piece back on', reply.from, ':', await pieceAt(reply.from), '| reset button gone:', (await page.locator('text=Reset position').count()) === 0);
 const after = (await readPuzzles()).find((x) => x.id === p.id);
 console.log('stored:', after.status, 'attempts', after.attempts, 'due in days', ((after.due - Date.now()) / 864e5).toFixed(2));
 console.log('errors', errors);

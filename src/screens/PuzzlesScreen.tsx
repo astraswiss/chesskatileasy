@@ -115,7 +115,9 @@ function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onR
   const resetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const turn = puzzle.fen.split(' ')[1] === 'w' ? 'white' : 'black';
   const done = verdict?.kind === 'correct' || verdict?.kind === 'revealed';
-  const canMove = !verdict || verdict.kind === 'wrong';
+  const canMove = !verdict || verdict.kind === 'wrong' || done;
+  // After the puzzle is over you can keep playing moves (both sides) to explore.
+  const [explore, setExplore] = useState<{ from: string; to: string } | null>(null);
 
   // Re-evaluate the best move at the same depth we use for checking answers.
   useEffect(() => {
@@ -139,6 +141,17 @@ function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onR
   /** Validates synchronously (so the board can reject illegal drops), then checks the answer. */
   const onMove = (from: string, to: string): boolean => {
     if (!canMove) return false;
+    if (done) {
+      const c = new Chess(fen);
+      try {
+        const mv = c.move({ from: from as Square, to: to as Square, promotion: 'q' });
+        setFen(c.fen());
+        setExplore({ from: mv.from, to: mv.to });
+        return true;
+      } catch {
+        return false;
+      }
+    }
     const c = new Chess(puzzle.fen);
     try {
       const mv = c.move({ from: from as Square, to: to as Square, promotion: 'q' });
@@ -174,6 +187,12 @@ function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onR
     await record(false);
   };
 
+  const reset = () => {
+    clearTimeout(resetTimer.current);
+    setFen(puzzle.fen);
+    setExplore(null);
+  };
+
   const reveal = async () => {
     clearTimeout(resetTimer.current);
     setFen(puzzle.fen);
@@ -182,7 +201,7 @@ function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onR
   };
 
   const arrows: Arrow[] = [];
-  if (verdict?.kind === 'revealed') {
+  if (verdict?.kind === 'revealed' && fen === puzzle.fen) {
     arrows.push({ startSquare: puzzle.bestUci.slice(0, 2), endSquare: puzzle.bestUci.slice(2, 4), color: 'rgba(129, 182, 76, 0.9)' });
   }
 
@@ -193,7 +212,14 @@ function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onR
         <span className="font-semibold">Find the best move for {turn}</span>
         {puzzle.status === 'failed' && <span className="ml-auto rounded-full bg-[#e58f2a]/20 px-2 py-0.5 text-xs text-[#e58f2a]">Review</span>}
       </div>
-      <Board id="puzzle" fen={fen} orientation={turn} arrows={arrows} onMove={canMove ? onMove : undefined} />
+      <Board id="puzzle" fen={fen} orientation={turn} arrows={arrows} lastMove={explore ?? undefined} onMove={canMove ? onMove : undefined} />
+      {fen !== puzzle.fen && verdict?.kind !== 'checking' && (
+        <div className="mt-2 flex justify-end">
+          <button onClick={reset} className="h-9 rounded-full bg-surface px-4 text-sm text-[#d6d4d1] active:bg-surface-2">
+            ↺ Reset position
+          </button>
+        </div>
+      )}
 
       <Card className="mt-3">
         {!verdict && (
@@ -224,6 +250,7 @@ function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onR
             <button onClick={() => void reveal()} className="h-10 rounded-xl bg-surface-2 px-4 text-sm">Show solution</button>
           </div>
         )}
+        {done && <div className="mt-1 text-xs text-muted">You can keep moving the pieces to explore the position.</div>}
         {done && (
           <div className="mt-3 flex gap-2">
             {hasNext ? (
