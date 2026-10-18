@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess, type Square } from 'chess.js';
 import type { Arrow } from 'react-chessboard';
 import type { PatternTag, Puzzle } from '../types/app';
@@ -108,9 +108,14 @@ export function PuzzlesScreen() {
 function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onResult: (p: Puzzle) => void; onNext: () => void; hasNext: boolean }) {
   const [fen, setFen] = useState(puzzle.fen);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [tried, setTried] = useState<string[]>([]); // wrong moves (SAN) tried so far
   const [bestWin, setBestWin] = useState<number | null>(null);
+  // Spaced repetition gets one result per showing: the first wrong try (or "Solution") counts as failed.
+  const recorded = useRef(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const turn = puzzle.fen.split(' ')[1] === 'w' ? 'white' : 'black';
-  const done = verdict && verdict.kind !== 'checking';
+  const done = verdict?.kind === 'correct' || verdict?.kind === 'revealed';
+  const canMove = !verdict || verdict.kind === 'wrong';
 
   // Re-evaluate the best move at the same depth we use for checking answers.
   useEffect(() => {
@@ -120,16 +125,24 @@ function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onR
       .catch(() => alive && setBestWin(puzzle.bestWin));
     return () => {
       alive = false;
+      clearTimeout(resetTimer.current);
     };
     // Only when a different puzzle is shown (attempt counters change the object).
   }, [puzzle.id]);
 
+  const record = async (solved: boolean) => {
+    if (recorded.current) return;
+    recorded.current = true;
+    onResult(await recordAttempt(puzzle, solved));
+  };
+
   /** Validates synchronously (so the board can reject illegal drops), then checks the answer. */
   const onMove = (from: string, to: string): boolean => {
-    if (verdict) return false;
+    if (!canMove) return false;
     const c = new Chess(puzzle.fen);
     try {
       const mv = c.move({ from: from as Square, to: to as Square, promotion: 'q' });
+      clearTimeout(resetTimer.current);
       setFen(c.fen());
       void check(c, mv.lan, mv.san);
       return true;
@@ -139,36 +152,39 @@ function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onR
   };
 
   const check = async (c: Chess, uci: string, san: string) => {
-    if (uci === puzzle.bestUci || c.isCheckmate()) {
+    let ok = uci === puzzle.bestUci || c.isCheckmate();
+    if (!ok) {
+      setVerdict({ kind: 'checking' });
+      try {
+        const [mine, best] = await Promise.all([winAfterMove(puzzle.fen, uci), bestWin ?? winAfterMove(puzzle.fen, puzzle.bestUci)]);
+        ok = best - mine <= TOLERANCE;
+      } catch {
+        ok = false;
+      }
+    }
+    if (ok) {
       setVerdict({ kind: 'correct', exact: uci === puzzle.bestUci });
-      onResult(await recordAttempt(puzzle, true));
+      await record(true);
       return;
     }
-    setVerdict({ kind: 'checking' });
-    try {
-      const [mine, best] = await Promise.all([winAfterMove(puzzle.fen, uci), bestWin ?? winAfterMove(puzzle.fen, puzzle.bestUci)]);
-      const ok = best - mine <= TOLERANCE;
-      setVerdict(ok ? { kind: 'correct', exact: false } : { kind: 'wrong', uci, san });
-      onResult(await recordAttempt(puzzle, ok));
-    } catch {
-      setVerdict({ kind: 'wrong', uci, san });
-      onResult(await recordAttempt(puzzle, false));
-    }
+    // Wrong: show it briefly, then put the position back so you can try again.
+    setVerdict({ kind: 'wrong', uci, san });
+    setTried((t) => (t.includes(san) ? t : [...t, san]));
+    resetTimer.current = setTimeout(() => setFen(puzzle.fen), 700);
+    await record(false);
   };
 
   const reveal = async () => {
+    clearTimeout(resetTimer.current);
+    setFen(puzzle.fen);
     setVerdict({ kind: 'revealed' });
-    onResult(await recordAttempt(puzzle, false));
+    await record(false);
   };
 
   const arrows: Arrow[] = [];
-  if (verdict?.kind === 'wrong') {
-    arrows.push({ startSquare: verdict.uci.slice(0, 2), endSquare: verdict.uci.slice(2, 4), color: 'rgba(202, 52, 49, 0.8)' });
-  }
-  if (verdict?.kind === 'wrong' || verdict?.kind === 'revealed') {
+  if (verdict?.kind === 'revealed') {
     arrows.push({ startSquare: puzzle.bestUci.slice(0, 2), endSquare: puzzle.bestUci.slice(2, 4), color: 'rgba(129, 182, 76, 0.9)' });
   }
-  const shownFen = verdict?.kind === 'wrong' || verdict?.kind === 'revealed' ? puzzle.fen : fen;
 
   return (
     <div>
@@ -177,41 +193,41 @@ function PuzzleView({ puzzle, onResult, onNext, hasNext }: { puzzle: Puzzle; onR
         <span className="font-semibold">Find the best move for {turn}</span>
         {puzzle.status === 'failed' && <span className="ml-auto rounded-full bg-[#e58f2a]/20 px-2 py-0.5 text-xs text-[#e58f2a]">Review</span>}
       </div>
-      <Board
-        id="puzzle"
-        fen={shownFen}
-        orientation={turn}
-        arrows={arrows}
-        onMove={verdict ? undefined : onMove}
-      />
+      <Board id="puzzle" fen={fen} orientation={turn} arrows={arrows} onMove={canMove ? onMove : undefined} />
 
       <Card className="mt-3">
         {!verdict && (
-          <div className="flex items-center gap-3">
-            <div className="flex-1 text-sm text-muted">
-              In the game you played <b className="text-[#d6d4d1]">{puzzle.playedSan}</b>. Drag or tap a piece to move.
-            </div>
-            <button onClick={() => void reveal()} className="h-10 rounded-xl bg-surface-2 px-3 text-sm">Solution</button>
+          <div className="text-sm text-muted">
+            In the game you played <b className="text-[#d6d4d1]">{puzzle.playedSan}</b>. Drag or tap a piece to move.
           </div>
         )}
         {verdict?.kind === 'checking' && (
           <div className="flex items-center gap-2 text-sm"><Spinner /> Checking with Stockfish…</div>
         )}
-        {verdict?.kind === 'correct' && (
-          <div className="text-base font-semibold text-win">✓ Correct!{!verdict.exact && <span className="ml-1 text-sm font-normal text-muted">(engine’s top move was {puzzle.bestSan})</span>}</div>
-        )}
         {verdict?.kind === 'wrong' && (
-          <div className="text-base font-semibold text-loss">
-            ✗ {verdict.san} isn’t it. <span className="font-normal text-[#d6d4d1]">Best was <b>{puzzle.bestSan}</b>.</span>
+          <div>
+            <div className="text-base font-semibold text-loss">✗ {verdict.san} isn’t it. Try again!</div>
+            {tried.length > 1 && <div className="mt-1 text-xs text-muted">Tried: {tried.join(', ')}</div>}
+          </div>
+        )}
+        {verdict?.kind === 'correct' && (
+          <div className="text-base font-semibold text-win">
+            ✓ Correct!{' '}{tried.length > 0 && <span className="ml-1.5 text-sm font-normal text-muted">after {tried.length + 1} tries</span>}
+            {!verdict.exact && <span className="ml-1 text-sm font-normal text-muted">(engine’s top move was {puzzle.bestSan})</span>}
           </div>
         )}
         {verdict?.kind === 'revealed' && (
           <div className="text-base">Solution: <b className="text-win">{puzzle.bestSan}</b></div>
         )}
+        {!done && verdict?.kind !== 'checking' && (
+          <div className="mt-3 flex justify-end">
+            <button onClick={() => void reveal()} className="h-10 rounded-xl bg-surface-2 px-4 text-sm">Show solution</button>
+          </div>
+        )}
         {done && (
           <div className="mt-3 flex gap-2">
             {hasNext ? (
-              <button onClick={onNext} className="h-11 flex-1 rounded-lg bg-accent font-bold text-black">Next puzzle</button>
+              <button onClick={onNext} className="h-11 flex-1 rounded-xl bg-accent font-semibold text-[#14200c]">Next puzzle</button>
             ) : (
               <div className="flex-1 self-center text-sm text-muted">That was the last one due.</div>
             )}
