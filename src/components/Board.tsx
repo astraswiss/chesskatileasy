@@ -15,12 +15,12 @@ export interface BoardProps {
   id?: string;
 }
 
-export const BOARD_COLORS = { light: '#ecebe4', dark: '#9fb393' };
+export const BOARD_COLORS = { light: '#eeeed2', dark: '#769656' };
 
 const dot = (capture: boolean): CSSProperties =>
   capture
-    ? { background: 'radial-gradient(circle, transparent 58%, rgba(30, 40, 25, 0.22) 60%)' }
-    : { background: 'radial-gradient(circle, rgba(30, 40, 25, 0.22) 22%, transparent 24%)' };
+    ? { background: 'radial-gradient(circle, transparent 58%, rgba(0, 0, 0, 0.18) 60%)' }
+    : { background: 'radial-gradient(circle, rgba(0, 0, 0, 0.18) 22%, transparent 24%)' };
 
 export function Board({ fen, orientation, lastMove, badge, arrows = [], onMove, id = 'board' }: BoardProps) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -38,10 +38,10 @@ export function Board({ fen, orientation, lastMove, badge, arrows = [], onMove, 
   const squareStyles = useMemo(() => {
     const s: Record<string, CSSProperties> = {};
     if (lastMove) {
-      s[lastMove.from] = { background: 'rgba(246, 222, 120, 0.38)' };
-      s[lastMove.to] = { background: 'rgba(246, 222, 120, 0.5)' };
+      s[lastMove.from] = { background: 'rgba(255, 255, 51, 0.35)' };
+      s[lastMove.to] = { background: 'rgba(255, 255, 51, 0.45)' };
     }
-    if (selected) s[selected] = { background: 'rgba(143, 191, 106, 0.5)' };
+    if (selected) s[selected] = { background: 'rgba(255, 255, 51, 0.5)' };
     for (const m of targets) s[m.to] = { ...s[m.to], ...dot(!!m.captured) };
     return s;
   }, [lastMove, selected, targets]);
@@ -72,8 +72,6 @@ export function Board({ fen, orientation, lastMove, badge, arrows = [], onMove, 
           allowDragging: !!onMove,
           darkSquareStyle: { backgroundColor: BOARD_COLORS.dark },
           lightSquareStyle: { backgroundColor: BOARD_COLORS.light },
-          darkSquareNotationStyle: { color: BOARD_COLORS.light, opacity: 0.9 },
-          lightSquareNotationStyle: { color: BOARD_COLORS.dark },
           animationDurationInMs: 200,
           canDragPiece: ({ piece }) => piece.pieceType[0] === fen.split(' ')[1],
           onPieceDrop: onMove
