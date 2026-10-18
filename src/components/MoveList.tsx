@@ -47,7 +47,7 @@ export function MoveList({
   };
 
   return (
-    <div ref={ref} className="relative max-h-64 overflow-y-auto rounded-lg border border-border bg-surface p-1 lg:max-h-[340px]">
+    <div ref={ref} className="relative max-h-64 overflow-y-auto rounded-2xl bg-surface p-1 lg:max-h-[340px]">
       {rows.length === 0 && <div className="p-3 text-sm text-muted">No moves.</div>}
       <div className="grid grid-cols-[2.25rem_1fr_1fr] gap-x-1">
         {rows.map((i) => (

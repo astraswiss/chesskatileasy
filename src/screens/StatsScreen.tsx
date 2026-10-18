@@ -8,8 +8,8 @@ import { Header } from '../components/Header';
 import { Card, Chip, EmptyState, SectionTitle, Spinner } from '../components/ui';
 import { TimeClassIcon } from '../components/Icons';
 
-const axis = { tick: { fill: '#9a9894', fontSize: 11 }, tickLine: false, axisLine: false } as const;
-const tooltipStyle = { background: '#262421', border: '1px solid #3d3a36', borderRadius: 8, fontSize: 12 };
+const axis = { tick: { fill: '#8d9199', fontSize: 11 }, tickLine: false, axisLine: false } as const;
+const tooltipStyle = { background: '#1c1e22', border: '1px solid #2c2f36', borderRadius: 8, fontSize: 12 };
 
 function WDLBar({ r }: { r: WDL }) {
   const pct = (x: number) => (r.n ? (x / r.n) * 100 : 0);
@@ -62,8 +62,8 @@ export function StatsScreen() {
             <Card className="flex flex-col gap-4">
               <WDLRow label="Overall" r={stats.total} />
               <WDLRow label={<><span className="h-3 w-3 rounded-sm bg-white" />White</>} r={stats.byColor.white} />
-              <WDLRow label={<><span className="h-3 w-3 rounded-sm border border-border bg-black" />Black</>} r={stats.byColor.black} />
-              <div className="border-t border-border" />
+              <WDLRow label={<><span className="h-3 w-3 rounded-full ring-1 ring-white/10 bg-black" />Black</>} r={stats.byColor.black} />
+              <div className="border-t border-white/5" />
               {stats.byTimeClass.map((r) => (
                 <WDLRow key={r.tc} label={<><TimeClassIcon tc={r.tc} />{r.tc}</>} r={r} />
               ))}
@@ -81,11 +81,11 @@ export function StatsScreen() {
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={series} margin={{ top: 4, right: 12, bottom: 0, left: -8 }}>
-                    <CartesianGrid stroke="#3d3a36" strokeDasharray="3 3" vertical={false} />
+                    <CartesianGrid stroke="#2c2f36" strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} tickFormatter={fmtDay} {...axis} />
                     <YAxis domain={['dataMin - 20', 'dataMax + 20']} allowDecimals={false} {...axis} />
                     <Tooltip contentStyle={tooltipStyle} labelFormatter={(t) => fmtDay(Number(t))} />
-                    <Line dataKey="rating" name="Rating" stroke="#81b64c" strokeWidth={2} dot={series.length < 40} isAnimationActive={false} />
+                    <Line dataKey="rating" name="Rating" stroke="#8fbf6a" strokeWidth={2} dot={series.length < 40} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -112,11 +112,11 @@ export function StatsScreen() {
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={stats.accuracyByMonth} margin={{ top: 4, right: 12, bottom: 0, left: -12 }}>
-                      <CartesianGrid stroke="#3d3a36" strokeDasharray="3 3" vertical={false} />
+                      <CartesianGrid stroke="#2c2f36" strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="month" {...axis} />
                       <YAxis domain={[0, 100]} {...axis} />
                       <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v) => [Number(v).toFixed(1), 'Accuracy']} />
-                      <Bar dataKey="accuracy" fill="#81b64c" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                      <Bar dataKey="accuracy" fill="#8fbf6a" radius={[4, 4, 0, 0]} isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

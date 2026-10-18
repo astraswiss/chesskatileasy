@@ -13,7 +13,7 @@ export function TabBar() {
   const active = '/' + (segments[0] ?? '');
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur pb-safe px-safe"
+      className="fixed inset-x-0 bottom-0 z-30 bg-surface/85 backdrop-blur pb-safe px-safe"
       aria-label="Main"
     >
       <div className="mx-auto flex h-[var(--tabbar-h)] max-w-3xl">

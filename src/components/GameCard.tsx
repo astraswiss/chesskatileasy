@@ -3,9 +3,9 @@ import { formatTimeControl } from '../lib/pgn';
 import { TimeClassIcon } from './Icons';
 
 const resultStyle = {
-  win: 'bg-win text-black',
-  loss: 'bg-loss text-white',
-  draw: 'bg-draw text-black',
+  win: 'bg-win/15 text-win',
+  loss: 'bg-loss/15 text-loss',
+  draw: 'bg-draw/15 text-draw',
 } as const;
 const resultLabel = { win: 'W', loss: 'L', draw: 'D' } as const;
 
@@ -39,15 +39,15 @@ export function GameCard({ game, accuracy, onClick }: { game: Game; accuracy?: n
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-3 py-3 text-left active:bg-surface-2"
+      className="flex w-full items-center gap-3 rounded-2xl bg-surface shadow-soft px-3 py-3 text-left active:bg-surface-2"
     >
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-base font-bold ${resultStyle[game.myResult]}`}>
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-semibold ${resultStyle[game.myResult]}`}>
         {resultLabel[game.myResult]}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span
-            className={`inline-block h-3 w-3 shrink-0 rounded-sm border border-border ${game.myColor === 'white' ? 'bg-black' : 'bg-white'}`}
+            className={`inline-block h-3 w-3 shrink-0 rounded-full ring-1 ring-white/10 ${game.myColor === 'white' ? 'bg-black' : 'bg-white'}`}
             title={`Opponent plays ${game.myColor === 'white' ? 'black' : 'white'}`}
           />
           <span className="truncate font-semibold">{game.oppName}</span>
@@ -66,8 +66,8 @@ export function GameCard({ game, accuracy, onClick }: { game: Game; accuracy?: n
       <div className="w-12 shrink-0 text-right">
         {accuracy !== undefined ? (
           <>
-            <div className="text-lg font-bold tabular-nums">{accuracy.toFixed(1)}</div>
-            <div className="text-[10px] uppercase tracking-wide text-muted">accuracy</div>
+            <div className="text-lg font-semibold tabular-nums">{accuracy.toFixed(1)}</div>
+            <div className="text-[11px] text-muted">accuracy</div>
           </>
         ) : (
           <div className="text-sm text-muted" title="Not analyzed yet">–</div>

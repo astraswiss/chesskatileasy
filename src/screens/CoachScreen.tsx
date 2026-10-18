@@ -31,7 +31,7 @@ function RangeToggle({ range, setRange }: { range: 30 | 100; setRange: (r: 30 | 
   );
 }
 
-function Bar({ value, max = 100, color = '#81b64c' }: { value: number; max?: number; color?: string }) {
+function Bar({ value, max = 100, color = '#8fbf6a' }: { value: number; max?: number; color?: string }) {
   return (
     <div className="h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
       <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (value / max) * 100))}%`, background: color }} />
@@ -110,10 +110,10 @@ function CoachBody({ report }: { report: CoachReport }) {
             </thead>
             <tbody>
               {report.worstOpenings.map((o) => (
-                <tr key={o.name} className="border-t border-border">
+                <tr key={o.name} className="border-t border-white/5">
                   <td className="px-3 py-2.5 leading-snug">{o.name}</td>
                   <td className="px-1 text-right tabular-nums text-muted">{o.games}</td>
-                  <td className="px-1 text-right tabular-nums" style={{ color: o.score < 0.4 ? '#e05252' : o.score > 0.6 ? '#81b64c' : undefined }}>
+                  <td className="px-1 text-right tabular-nums" style={{ color: o.score < 0.4 ? '#e05252' : o.score > 0.6 ? '#8fbf6a' : undefined }}>
                     {Math.round(o.score * 100)}%
                   </td>
                   <td className="px-3 text-right tabular-nums">{o.accuracy.toFixed(1)}</td>
@@ -130,12 +130,12 @@ function CoachBody({ report }: { report: CoachReport }) {
         {report.clockBuckets.map((b) => (
           <div key={b.label} className="flex items-center gap-3 text-sm">
             <span className="w-24">{b.label}</span>
-            <Bar value={b.accuracy} max={maxClockAcc} color={b.label.startsWith('<') ? '#e58f2a' : '#81b64c'} />
+            <Bar value={b.accuracy} max={maxClockAcc} color={b.label.startsWith('<') ? '#e58f2a' : '#8fbf6a'} />
             <span className="w-12 text-right font-semibold tabular-nums">{b.moves ? b.accuracy.toFixed(1) : '–'}</span>
             <span className="w-16 text-right text-xs text-muted tabular-nums">{b.moves} moves</span>
           </div>
         ))}
-        <div className="flex gap-3 border-t border-border pt-3 text-sm">
+        <div className="flex gap-3 border-t border-white/5 pt-3 text-sm">
           <div className="flex-1">
             <div className="text-2xl font-bold tabular-nums">{report.lostOnTime}</div>
             <div className="text-xs text-muted">games lost on time</div>
@@ -152,24 +152,24 @@ function CoachBody({ report }: { report: CoachReport }) {
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={report.trend} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
-              <CartesianGrid stroke="#3d3a36" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="idx" tick={{ fill: '#9a9894', fontSize: 11 }} tickLine={false} axisLine={false} />
-              <YAxis yAxisId="acc" domain={[0, 100]} tick={{ fill: '#9a9894', fontSize: 11 }} tickLine={false} axisLine={false} />
-              <YAxis yAxisId="bl" orientation="right" allowDecimals={false} tick={{ fill: '#9a9894', fontSize: 11 }} tickLine={false} axisLine={false} width={28} />
+              <CartesianGrid stroke="#2c2f36" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="idx" tick={{ fill: '#8d9199', fontSize: 11 }} tickLine={false} axisLine={false} />
+              <YAxis yAxisId="acc" domain={[0, 100]} tick={{ fill: '#8d9199', fontSize: 11 }} tickLine={false} axisLine={false} />
+              <YAxis yAxisId="bl" orientation="right" allowDecimals={false} tick={{ fill: '#8d9199', fontSize: 11 }} tickLine={false} axisLine={false} width={28} />
               <Tooltip
-                contentStyle={{ background: '#262421', border: '1px solid #3d3a36', borderRadius: 8, fontSize: 12 }}
+                contentStyle={{ background: '#1c1e22', border: '1px solid #2c2f36', borderRadius: 8, fontSize: 12 }}
                 labelFormatter={(_, p) => (p?.[0] ? formatDate(p[0].payload.date) : '')}
                 formatter={(v, name) => [Number(v).toFixed(1), name]}
               />
-              <Line yAxisId="acc" dataKey="accuracy" name="Accuracy" stroke="#81b64c" strokeOpacity={0.25} dot={false} isAnimationActive={false} />
-              <Line yAxisId="acc" dataKey="accAvg" name="Accuracy (avg)" stroke="#81b64c" strokeWidth={2.5} dot={false} isAnimationActive={false} />
-              <Line yAxisId="bl" dataKey="blunderAvg" name="Blunders/game (avg)" stroke="#ca3431" strokeWidth={2} dot={false} isAnimationActive={false} />
+              <Line yAxisId="acc" dataKey="accuracy" name="Accuracy" stroke="#8fbf6a" strokeOpacity={0.25} dot={false} isAnimationActive={false} />
+              <Line yAxisId="acc" dataKey="accAvg" name="Accuracy (avg)" stroke="#8fbf6a" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+              <Line yAxisId="bl" dataKey="blunderAvg" name="Blunders/game (avg)" stroke="#e2837a" strokeWidth={2} dot={false} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
         <div className="flex justify-center gap-4 px-2 text-xs text-muted">
           <span><span className="mr-1 inline-block h-2 w-3 rounded bg-accent" />Accuracy (rolling avg)</span>
-          <span><span className="mr-1 inline-block h-2 w-3 rounded bg-[#ca3431]" />Blunders per game</span>
+          <span><span className="mr-1 inline-block h-2 w-3 rounded bg-[#e2837a]" />Blunders per game</span>
         </div>
       </Card>
     </>
@@ -178,7 +178,7 @@ function CoachBody({ report }: { report: CoachReport }) {
 
 function WeaknessCard({ w, rank, nGames }: { w: Weakness; rank: number; nGames: number }) {
   return (
-    <button onClick={() => navigate(`/coach/tag/${w.tag}`)} className="rounded-xl border border-border bg-surface p-4 text-left active:bg-surface-2">
+    <button onClick={() => navigate(`/coach/tag/${w.tag}`)} className="rounded-2xl bg-surface shadow-soft p-4 text-left active:bg-surface-2">
       <div className="flex items-center gap-2">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-loss/20 text-xs font-bold text-loss">{rank}</span>
         <span className="font-semibold">{w.title}</span>
@@ -215,7 +215,7 @@ function WeaknessDetail({ tag, report, loading }: { tag: PatternTag; report: Coa
                   <li key={`${o.gameId}:${o.ply}`}>
                     <button
                       onClick={() => navigate(`/game/${o.gameId}?ply=${punish ? o.ply : o.ply + 1}`)}
-                      className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface p-3 text-left active:bg-surface-2"
+                      className="flex w-full items-center gap-3 rounded-2xl bg-surface shadow-soft p-3 text-left active:bg-surface-2"
                     >
                       <ClassIcon c={punish ? o.prev!.classification : o.move.classification} size={28} />
                       <div className="min-w-0 flex-1">

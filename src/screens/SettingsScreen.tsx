@@ -32,7 +32,7 @@ export function SettingsScreen() {
             max={22}
             value={s.depth}
             onChange={(e) => void updateSettings({ depth: Number(e.target.value) })}
-            className="mt-3 w-full accent-[#81b64c]"
+            className="mt-3 w-full accent-[#8fbf6a]"
           />
           <p className="mt-2 text-xs text-muted">Used when you tap Analyze. Higher is more accurate but slower. Background analysis uses depth 12.</p>
         </Card>
@@ -48,7 +48,7 @@ export function SettingsScreen() {
                 void updateSettings({ autoAnalyze: e.target.checked });
                 if (!e.target.checked) cancelAuto();
               }}
-              className="h-6 w-6 accent-[#81b64c]"
+              className="h-6 w-6 accent-[#8fbf6a]"
             />
           </label>
           <label className="flex items-center justify-between text-sm font-medium">
@@ -56,7 +56,7 @@ export function SettingsScreen() {
             <select
               value={s.autoMaxPerSession}
               onChange={(e) => void updateSettings({ autoMaxPerSession: Number(e.target.value) })}
-              className="h-10 rounded-lg border border-border bg-surface-2 px-2"
+              className="h-10 rounded-xl bg-surface-2 px-2"
             >
               {[10, 30, 100, 1000].map((n) => (
                 <option key={n} value={n}>{n}</option>

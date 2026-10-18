@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Chess, type Square } from 'chess.js';
 import type { Arrow } from 'react-chessboard';
 import type { Game, GameAnalysis } from '../types/app';
 import { getGame } from '../lib/db';
@@ -44,6 +45,8 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
   const queue = useAnalysisQueue();
   const { version } = useAnalysisIndex();
   const [error, setError] = useState<string | null>(null);
+  // A line the user plays on the board, branching off the game at `base`.
+  const [vari, setVari] = useState<Variation | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -66,19 +69,41 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
   // Jump to the ply from the URL when it changes (e.g. coming from Coach).
   const qPly = route.query.get('ply');
   useEffect(() => {
-    if (qPly !== null) setPly(Number(qPly) || 0);
+    if (qPly !== null) {
+      setVari(null);
+      setPly(Number(qPly) || 0);
+    }
   }, [qPly, gameId]);
 
   const parsed = useMemo(() => (game ? parseGame(game.pgn) : null), [game]);
   const n = parsed?.moves.length ?? 0;
-  const go = useCallback((p: number) => setPly(Math.max(0, Math.min(n, p))), [n]);
+  const go = useCallback(
+    (p: number) => {
+      setVari(null);
+      setPly(Math.max(0, Math.min(n, p)));
+    },
+    [n],
+  );
+  /** One step back/forward: inside a variation first, then along the game. */
+  const step = useCallback(
+    (d: 1 | -1) => {
+      if (vari) {
+        const idx = vari.idx + d;
+        if (idx <= 0) setVari(null);
+        else if (idx <= vari.moves.length) setVari({ ...vari, idx });
+        return;
+      }
+      go(ply + d);
+    },
+    [vari, go, ply],
+  );
 
   // Keyboard navigation.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
-      if (e.key === 'ArrowLeft') go(ply - 1);
-      else if (e.key === 'ArrowRight') go(ply + 1);
+      if (e.key === 'ArrowLeft') step(-1);
+      else if (e.key === 'ArrowRight') step(1);
       else if (e.key === 'ArrowUp' || e.key === 'Home') go(0);
       else if (e.key === 'ArrowDown' || e.key === 'End') go(n);
       else return;
@@ -86,21 +111,26 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, ply, n]);
+  }, [go, step, n]);
 
   // Swipe navigation on the board.
   const touch = useRef<{ x: number; y: number } | null>(null);
-  const onTouchStart = (e: React.TouchEvent) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY });
+  const onTouchStart = (e: React.TouchEvent) => {
+    // Touches that start on a piece are moves, not swipes.
+    const onPiece = (e.target as HTMLElement).closest?.('[data-piece]');
+    touch.current = onPiece ? null : { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
   const onTouchEnd = (e: React.TouchEvent) => {
     if (!touch.current) return;
     const dx = e.changedTouches[0].clientX - touch.current.x;
     const dy = e.changedTouches[0].clientY - touch.current.y;
     touch.current = null;
-    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) go(ply + (dx < 0 ? 1 : -1));
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
   };
 
-  const fen = parsed?.fens[ply] ?? null;
-  const stored = analysis?.positions[ply];
+  const inVar = !!vari && vari.idx > 0;
+  const fen = inVar ? vari!.moves[vari!.idx - 1].fen : (parsed?.fens[ply] ?? null);
+  const stored = inVar ? undefined : analysis?.positions[ply];
   const live = useLiveEval(stored ? null : fen, Math.min(settings.depth, 18));
   const evalNow = stored ?? (live.result ? { score: live.result.score, pv: live.result.pv, best: live.result.best, depth: live.result.depth } : null);
 
@@ -123,18 +153,39 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
   const orientation = (game.myColor === 'white') !== flipped ? 'white' : 'black';
   const whiteToMove = fen.split(' ')[1] === 'w';
   const ev = evalNow ? whiteEval(evalNow.score, whiteToMove) : { win: 50, label: '…', pawns: 0 };
-  const lastMove = ply > 0 ? parsed.moves[ply - 1] : undefined;
-  const lastA = ply > 0 ? analysis?.moves[ply - 1] : undefined;
+  const lastMove = inVar ? vari!.moves[vari!.idx - 1] : ply > 0 ? parsed.moves[ply - 1] : undefined;
+  const lastA = !inVar && ply > 0 ? analysis?.moves[ply - 1] : undefined;
+
+  /** The user moved a piece: follow the game if it's the game move, otherwise start/extend a variation. */
+  const onMove = (from: string, to: string): boolean => {
+    const c = new Chess(fen);
+    let mv;
+    try {
+      mv = c.move({ from: from as Square, to: to as Square, promotion: 'q' });
+    } catch {
+      return false;
+    }
+    if (!inVar && parsed.moves[ply]?.lan === mv.lan) {
+      go(ply + 1);
+      return true;
+    }
+    const base = inVar ? vari!.base : ply;
+    const moves = [...(inVar ? vari!.moves.slice(0, vari!.idx) : []), { san: mv.san, from: mv.from, to: mv.to, fen: c.fen() }];
+    setVari({ base, moves, idx: moves.length });
+    return true;
+  };
+  const plyNow = inVar ? vari!.base + vari!.idx : ply;
 
   const arrows: Arrow[] = [];
   if (evalNow?.best && evalNow.best.length >= 4) {
-    arrows.push({ startSquare: evalNow.best.slice(0, 2), endSquare: evalNow.best.slice(2, 4), color: 'rgba(129, 182, 76, 0.85)' });
+    arrows.push({ startSquare: evalNow.best.slice(0, 2), endSquare: evalNow.best.slice(2, 4), color: 'rgba(143, 191, 106, 0.8)' });
   }
   const lineSan = evalNow ? lineToSan(fen, evalNow.pv, 10) : [];
-  const moveNo = Math.floor(ply / 2) + 1;
+  const moveNo = Math.floor(plyNow / 2) + 1;
 
   const clockOf = (color: 'w' | 'b') => {
-    for (let i = ply - 1; i >= 0; i--) if (parsed.moves[i].color === color) return parsed.clocks[i];
+    const upTo = inVar ? vari!.base : ply;
+    for (let i = upTo - 1; i >= 0; i--) if (parsed.moves[i].color === color) return parsed.clocks[i];
     return parsed.clocks.length ? parseTimeControl(game.timeControl).base : undefined;
   };
   const whiteName = game.myColor === 'white' ? 'You' : game.oppName;
@@ -147,11 +198,11 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
     const active = (color === 'w') === whiteToMove;
     return (
       <div className="flex items-center gap-2 px-1 py-1.5">
-        <span className={`h-4 w-4 rounded-sm border border-border ${color === 'w' ? 'bg-white' : 'bg-black'}`} />
+        <span className={`h-4 w-4 rounded-full ring-1 ring-white/10 ${color === 'w' ? 'bg-white' : 'bg-black'}`} />
         <span className="truncate font-semibold">{name}</span>
         <span className="text-sm text-muted">({rating})</span>
         {acc !== undefined && <span className="text-xs text-muted">{acc.toFixed(1)}%</span>}
-        <span className={`ml-auto rounded px-2 py-0.5 font-mono text-sm tabular-nums ${active ? 'bg-white text-black' : 'bg-surface-2 text-muted'}`}>
+        <span className={`ml-auto rounded-lg px-2.5 py-0.5 text-sm font-medium tabular-nums ${active ? 'bg-[#ecebe4] text-[#1c1e22]' : 'bg-surface text-muted'}`}>
           {fmtClock(clockOf(color)) || '–'}
         </span>
       </div>
@@ -193,6 +244,7 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
                 lastMove={lastMove ? { from: lastMove.from, to: lastMove.to } : undefined}
                 badge={lastA && lastMove ? { square: lastMove.to, c: lastA.classification } : undefined}
                 arrows={arrows}
+                onMove={onMove}
               />
             </div>
           </div>
@@ -200,16 +252,23 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
 
           <div className="mt-1 grid grid-cols-5 gap-1.5">
             <NavBtn label="First move" onClick={() => go(0)} disabled={ply === 0}><IconFirst /></NavBtn>
-            <NavBtn label="Previous move" onClick={() => go(ply - 1)} disabled={ply === 0}><IconPrev /></NavBtn>
-            <NavBtn label="Next move" onClick={() => go(ply + 1)} disabled={ply === n} primary><IconNext /></NavBtn>
+            <NavBtn label="Previous move" onClick={() => step(-1)} disabled={!vari && ply === 0}><IconPrev /></NavBtn>
+            <NavBtn label="Next move" onClick={() => step(1)} disabled={vari ? vari.idx >= vari.moves.length : ply === n} primary><IconNext /></NavBtn>
             <NavBtn label="Last move" onClick={() => go(n)} disabled={ply === n}><IconLast /></NavBtn>
             <NavBtn label="Flip board" onClick={() => setFlipped((f) => !f)}><IconFlip /></NavBtn>
           </div>
         </section>
 
         <section className="mt-3 flex flex-col gap-3 lg:mt-0">
+          {vari && (
+            <VariationCard
+              vari={vari}
+              onSelect={(idx) => (idx === 0 ? setVari(null) : setVari({ ...vari, idx }))}
+              onExit={() => setVari(null)}
+            />
+          )}
           {/* Current move verdict */}
-          <div className="min-h-[64px] rounded-xl border border-border bg-surface p-3">
+          {!inVar && <div className="min-h-[64px] rounded-2xl bg-surface shadow-soft p-3">
             {lastA ? (
               <div className="flex items-start gap-3">
                 <ClassIcon c={lastA.classification} size={28} />
@@ -236,14 +295,15 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
               </div>
             ) : (
               <div className="text-sm text-muted">
-                {ply === 0 ? `Start position · ${describeResult(game)}` : lastMove ? `${Math.floor((ply - 1) / 2) + 1}${lastMove.color === 'w' ? '.' : '...'} ${lastMove.san}` : ''}
-                {!analysis && ' · Analyze the game to classify moves.'}
+                {ply === 0 ? `Start position · ${describeResult(game)}` : `${Math.floor((ply - 1) / 2) + 1}${parsed.moves[ply - 1].color === 'w' ? '.' : '...'} ${parsed.moves[ply - 1].san}`}
+                {!analysis && !inVar && ' · Analyze the game to classify moves.'}
+                {!inVar && <span className="mt-1 block text-xs opacity-80">Tip: move the pieces to try your own ideas.</span>}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Engine line */}
-          <div className="rounded-xl border border-border bg-surface px-3 py-2 text-sm">
+          <div className="rounded-2xl bg-surface shadow-soft px-3 py-2 text-sm">
             <div className="flex items-center gap-2">
               <span className={`rounded px-1.5 py-0.5 font-mono text-xs font-bold ${ev.win >= 50 ? 'bg-white text-black' : 'bg-[#403d39] text-white'}`}>{ev.label}</span>
               <span className="text-xs text-muted">{evalNow ? `depth ${evalNow.depth}${stored ? '' : ' · live'}` : live.error ? 'engine error' : 'thinking…'}</span>
@@ -260,7 +320,7 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
 
           {/* Analyze */}
           {running ? (
-            <div className="rounded-xl border border-border bg-surface p-3">
+            <div className="rounded-2xl bg-surface shadow-soft p-3">
               <div className="mb-2 flex justify-between text-sm">
                 <span>Analyzing{running.manual ? '' : ' (background)'}… depth {running.depth}</span>
                 <span className="tabular-nums text-muted">{running.done}/{running.total}</span>
@@ -271,19 +331,19 @@ export function ReviewScreen({ gameId }: { gameId: string }) {
               )}
             </div>
           ) : !analysis ? (
-            <button onClick={startAnalysis} className="h-12 rounded-xl bg-accent text-base font-bold text-black active:opacity-80">
+            <button onClick={startAnalysis} className="h-12 rounded-2xl bg-accent text-base font-semibold text-[#14200c] shadow-soft active:opacity-80">
               Analyze game (depth {settings.depth})
             </button>
           ) : needsDeeper ? (
-            <button onClick={startAnalysis} className="h-10 rounded-xl border border-border bg-surface text-sm text-muted">
+            <button onClick={startAnalysis} className="h-10 rounded-2xl bg-surface shadow-soft text-sm text-muted">
               Analyzed at depth {analysis.depth} · re-analyze at depth {settings.depth}
             </button>
           ) : null}
           {(error || (queue.lastError && running === null && !analysis)) && (
-            <div className="rounded-lg border border-loss/40 bg-loss/10 p-2 text-sm">Analysis failed: {error ?? queue.lastError}</div>
+            <div className="rounded-2xl bg-loss/10 p-3 text-sm">Analysis failed: {error ?? queue.lastError}</div>
           )}
 
-          <MoveList moves={parsed.moves} analysis={analysis?.moves} current={ply} onSelect={go} />
+          <MoveList moves={parsed.moves} analysis={analysis?.moves} current={vari ? vari.base : ply} onSelect={go} />
 
           {analysis && <AccuracySummary analysis={analysis} whiteName={whiteName} blackName={blackName} />}
           {analysis && <KeyMoments analysis={analysis} onSelect={go} />}
@@ -299,7 +359,7 @@ function NavBtn({ children, onClick, disabled, label, primary }: { children: Rea
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-12 items-center justify-center rounded-lg ${primary ? 'bg-surface-2' : 'bg-surface'} disabled:opacity-40 active:bg-border`}
+      className={`flex h-12 items-center justify-center rounded-2xl ${primary ? 'bg-surface-2 text-white' : 'bg-surface text-[#c9ccd2]'} disabled:opacity-30 active:bg-border`}
     >
       {children}
     </button>
@@ -310,7 +370,7 @@ function KeyMoments({ analysis, onSelect }: { analysis: GameAnalysis; onSelect: 
   const mine = analysis.moves.filter((m) => m.color === analysis.myColor && (BAD_CLASSES.includes(m.classification) || m.classification === 'brilliant'));
   if (mine.length === 0) return null;
   return (
-    <div className="rounded-xl border border-border bg-surface p-3">
+    <div className="rounded-2xl bg-surface shadow-soft p-3">
       <div className="mb-2 text-sm font-semibold">Your key moments</div>
       <div className="flex flex-col">
         {mine.map((m) => (
@@ -323,6 +383,41 @@ function KeyMoments({ analysis, onSelect }: { analysis: GameAnalysis; onSelect: 
             </span>
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+interface Variation {
+  base: number; // game ply the line branches from
+  moves: { san: string; from: string; to: string; fen: string }[];
+  idx: number; // how many variation moves are shown
+}
+
+function VariationCard({ vari, onSelect, onExit }: { vari: Variation; onSelect: (idx: number) => void; onExit: () => void }) {
+  return (
+    <div className="rounded-2xl bg-accent/10 p-3 ring-1 ring-accent/25">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-sm font-medium text-accent">Your line</span>
+        <button onClick={onExit} className="h-8 rounded-full bg-surface px-3 text-xs font-medium text-[#d6d4d1] active:opacity-70">
+          Back to game
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1 text-sm">
+        {vari.moves.map((m, i) => {
+          const p = vari.base + i;
+          const num = p % 2 === 0 ? `${p / 2 + 1}.` : i === 0 ? `${Math.floor(p / 2) + 1}...` : '';
+          return (
+            <button
+              key={i}
+              onClick={() => onSelect(i + 1)}
+              className={`rounded-lg px-1.5 py-0.5 tabular-nums ${vari.idx === i + 1 ? 'bg-accent/25 text-white' : 'text-[#d6d4d1]'}`}
+            >
+              {num && <span className="mr-0.5 text-muted">{num}</span>}
+              {m.san}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -131,7 +131,7 @@ export function HomeScreen() {
             <button
               onClick={() => void loadMoreGames()}
               disabled={s.loadingMore}
-              className="h-11 rounded-xl border border-border bg-surface px-5 text-sm font-medium"
+              className="h-11 rounded-2xl bg-surface shadow-soft px-5 text-sm font-medium"
             >
               {s.loadingMore ? <Spinner /> : 'Load older games'}
             </button>

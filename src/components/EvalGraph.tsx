@@ -22,7 +22,7 @@ export function EvalGraph({
   const data: Point[] = whiteWins.map((w, ply) => ({ ply, v: (w - 50) / 50 }));
   const marks = moves.filter((m) => m.classification === 'blunder' || m.classification === 'mistake' || m.classification === 'brilliant' || m.classification === 'miss');
   return (
-    <div className="h-24 w-full select-none overflow-hidden rounded-lg bg-[#403d39]">
+    <div className="h-24 w-full select-none overflow-hidden rounded-2xl bg-[#3a3d44]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
@@ -34,13 +34,13 @@ export function EvalGraph({
         >
           <XAxis dataKey="ply" hide type="number" domain={[0, Math.max(1, data.length - 1)]} />
           <YAxis hide domain={[-1, 1]} />
-          <Tooltip content={() => null} cursor={{ stroke: '#81b64c', strokeWidth: 1 }} />
-          <Area type="monotone" dataKey="v" stroke="#bbb" strokeWidth={1} fill="#f0f0f0" fillOpacity={1} baseValue={-1} isAnimationActive={false} />
+          <Tooltip content={() => null} cursor={{ stroke: '#8fbf6a', strokeWidth: 1 }} />
+          <Area type="monotone" dataKey="v" stroke="#c9c7bd" strokeWidth={1} fill="#ecebe4" fillOpacity={1} baseValue={-1} isAnimationActive={false} />
           <ReferenceLine y={0} stroke="#777" strokeDasharray="2 2" />
           {marks.map((m) => (
             <ReferenceLine key={m.ply} x={m.ply + 1} stroke={CLASS_META[m.classification].color} strokeWidth={1.5} strokeOpacity={0.9} />
           ))}
-          <ReferenceLine x={current} stroke="#81b64c" strokeWidth={2} />
+          <ReferenceLine x={current} stroke="#8fbf6a" strokeWidth={2} />
         </AreaChart>
       </ResponsiveContainer>
     </div>

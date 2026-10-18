@@ -4,7 +4,7 @@ import { CLASS_META, CLASS_ORDER, ClassIcon } from './ClassIcon';
 export function AccuracySummary({ analysis, whiteName, blackName }: { analysis: GameAnalysis; whiteName: string; blackName: string }) {
   const { accuracy, counts } = analysis;
   return (
-    <div className="rounded-xl border border-border bg-surface p-3">
+    <div className="rounded-2xl bg-surface shadow-soft p-3">
       <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-1 text-sm">
         <span />
         <span className="w-20 truncate text-center text-xs text-muted">{whiteName}</span>

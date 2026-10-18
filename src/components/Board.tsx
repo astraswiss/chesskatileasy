@@ -1,5 +1,6 @@
-import { useMemo, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Chessboard, type Arrow } from 'react-chessboard';
+import { Chess, type Square } from 'chess.js';
 import type { Classification } from '../types/app';
 import { ClassIcon } from './ClassIcon';
 
@@ -9,24 +10,58 @@ export interface BoardProps {
   lastMove?: { from: string; to: string };
   badge?: { square: string; c: Classification };
   arrows?: Arrow[];
-  onDrop?: (from: string, to: string, piece: string) => boolean;
-  highlight?: Record<string, CSSProperties>;
-  onSquareClick?: (square: string) => void;
+  /** Enables moving pieces (drag or tap-tap). Return true if the move was accepted. */
+  onMove?: (from: string, to: string) => boolean;
   id?: string;
 }
 
-export function Board({ fen, orientation, lastMove, badge, arrows = [], onDrop, highlight, onSquareClick, id = 'board' }: BoardProps) {
+export const BOARD_COLORS = { light: '#ecebe4', dark: '#9fb393' };
+
+const dot = (capture: boolean): CSSProperties =>
+  capture
+    ? { background: 'radial-gradient(circle, transparent 58%, rgba(30, 40, 25, 0.22) 60%)' }
+    : { background: 'radial-gradient(circle, rgba(30, 40, 25, 0.22) 22%, transparent 24%)' };
+
+export function Board({ fen, orientation, lastMove, badge, arrows = [], onMove, id = 'board' }: BoardProps) {
+  const [selected, setSelected] = useState<string | null>(null);
+  useEffect(() => setSelected(null), [fen]);
+
+  const targets = useMemo(() => {
+    if (!selected) return [];
+    try {
+      return new Chess(fen).moves({ square: selected as Square, verbose: true });
+    } catch {
+      return [];
+    }
+  }, [fen, selected]);
+
   const squareStyles = useMemo(() => {
     const s: Record<string, CSSProperties> = {};
     if (lastMove) {
-      s[lastMove.from] = { background: 'rgba(255, 255, 51, 0.35)' };
-      s[lastMove.to] = { background: 'rgba(255, 255, 51, 0.45)' };
+      s[lastMove.from] = { background: 'rgba(246, 222, 120, 0.38)' };
+      s[lastMove.to] = { background: 'rgba(246, 222, 120, 0.5)' };
     }
-    return { ...s, ...highlight };
-  }, [lastMove, highlight]);
+    if (selected) s[selected] = { background: 'rgba(143, 191, 106, 0.5)' };
+    for (const m of targets) s[m.to] = { ...s[m.to], ...dot(!!m.captured) };
+    return s;
+  }, [lastMove, selected, targets]);
+
+  const onSquareClick = (square: string) => {
+    if (!onMove) return;
+    const c = new Chess(fen);
+    const piece = c.get(square as Square);
+    if (selected && selected !== square && !(piece && piece.color === c.turn())) {
+      onMove(selected, square);
+      setSelected(null);
+    } else if (piece && piece.color === c.turn() && selected !== square) {
+      setSelected(square);
+    } else {
+      setSelected(null);
+    }
+  };
 
   return (
-    <div className="aspect-square w-full touch-none select-none">
+    <div className="aspect-square w-full touch-none select-none overflow-hidden rounded-xl">
       <Chessboard
         options={{
           id,
@@ -34,27 +69,32 @@ export function Board({ fen, orientation, lastMove, badge, arrows = [], onDrop, 
           boardOrientation: orientation,
           arrows,
           allowDrawingArrows: false,
-          allowDragging: !!onDrop,
-          squareStyles,
-          darkSquareStyle: { backgroundColor: '#769656' },
-          lightSquareStyle: { backgroundColor: '#eeeed2' },
-          animationDurationInMs: 180,
-          onPieceDrop: onDrop
-            ? ({ sourceSquare, targetSquare, piece }) => (targetSquare ? onDrop(sourceSquare, targetSquare, piece.pieceType) : false)
+          allowDragging: !!onMove,
+          darkSquareStyle: { backgroundColor: BOARD_COLORS.dark },
+          lightSquareStyle: { backgroundColor: BOARD_COLORS.light },
+          darkSquareNotationStyle: { color: BOARD_COLORS.light, opacity: 0.9 },
+          lightSquareNotationStyle: { color: BOARD_COLORS.dark },
+          animationDurationInMs: 200,
+          canDragPiece: ({ piece }) => piece.pieceType[0] === fen.split(' ')[1],
+          onPieceDrop: onMove
+            ? ({ sourceSquare, targetSquare }) => {
+                setSelected(null);
+                return targetSquare && targetSquare !== sourceSquare ? onMove(sourceSquare, targetSquare) : false;
+              }
             : undefined,
-          onSquareClick: onSquareClick ? ({ square }) => onSquareClick(square) : undefined,
-          squareRenderer: badge
-            ? ({ square, children }) => (
-                <div className="relative h-full w-full">
-                  {children}
-                  {square === badge.square && (
-                    <div className="pointer-events-none absolute -right-[12%] -top-[12%] z-10 w-[48%]">
-                      <ClassIcon c={badge.c} size={100} className="h-auto w-full drop-shadow" />
-                    </div>
-                  )}
+          onSquareClick: onMove ? ({ square }) => onSquareClick(square) : undefined,
+          // Rendering squares ourselves (instead of `squareStyles`) keeps highlights working
+          // together with the classification badge.
+          squareRenderer: ({ square, children }) => (
+            <div className="relative h-full w-full" style={squareStyles[square]}>
+              {children}
+              {badge && square === badge.square && (
+                <div className="pointer-events-none absolute -right-[10%] -top-[10%] z-10 w-[44%]">
+                  <ClassIcon c={badge.c} size={100} className="h-auto w-full drop-shadow" />
                 </div>
-              )
-            : undefined,
+              )}
+            </div>
+          ),
         }}
       />
     </div>

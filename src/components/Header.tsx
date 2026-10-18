@@ -4,7 +4,7 @@ import { IconBack } from './Icons';
 
 export function Header({ title, back, right, sub }: { title: ReactNode; back?: boolean; right?: ReactNode; sub?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-bg/95 backdrop-blur pt-safe">
+    <header className="sticky top-0 z-20 bg-bg/80 backdrop-blur-xl pt-safe">
       <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-3">
         {back && (
           <button onClick={() => goBack()} className="-ml-1 flex h-11 w-11 items-center justify-center rounded-full hover:bg-surface" aria-label="Back">

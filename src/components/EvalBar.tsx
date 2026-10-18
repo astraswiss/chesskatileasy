@@ -6,14 +6,14 @@ export function EvalBar({ win, label, flipped }: { win: number; label: string; f
   // The label sits at the far end of the side that is ahead.
   const labelAtBottom = whiteAhead === whiteAtBottom;
   return (
-    <div className="relative w-5 shrink-0 self-stretch overflow-hidden rounded bg-[#403d39] sm:w-6" aria-label={`Evaluation ${label}`}>
+    <div className="relative w-5 shrink-0 self-stretch overflow-hidden rounded-lg bg-[#3a3d44] sm:w-6" aria-label={`Evaluation ${label}`}>
       <div
-        className={`absolute inset-x-0 bg-[#f0f0f0] transition-[height] duration-300 ${whiteAtBottom ? 'bottom-0' : 'top-0'}`}
+        className={`absolute inset-x-0 bg-[#ecebe4] transition-[height] duration-300 ${whiteAtBottom ? 'bottom-0' : 'top-0'}`}
         style={{ height: `${whitePct}%` }}
       />
       <div
         className={`absolute inset-x-0 text-center text-[9px] font-bold leading-none ${labelAtBottom ? 'bottom-1' : 'top-1'} ${
-          whiteAhead ? 'text-[#403d39]' : 'text-[#f0f0f0]'
+          whiteAhead ? 'text-[#3a3d44]' : 'text-[#ecebe4]'
         }`}
       >
         {label.replace('+', '').replace('-', '')}
