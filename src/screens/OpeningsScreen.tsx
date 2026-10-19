@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Arrow } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { useGames } from '../lib/games';
@@ -14,6 +14,8 @@ import {
 } from '../lib/repertoire';
 import type { GameAnalysis } from '../types/app';
 import { Header } from '../components/Header';
+import { TrainerScreen } from './TrainerScreen';
+import { loadCards } from '../lib/book';
 import { Board } from '../components/Board';
 import { Card, EmptyState, SectionTitle, Spinner } from '../components/ui';
 import { ClassIcon } from '../components/ClassIcon';
@@ -54,6 +56,7 @@ export function OpeningsScreen() {
   const { reports, loading, totalGames } = useReports();
   const id = route.segments[1];
   const report = id ? reports.find((r) => r.def.id === id) : undefined;
+  if (id && report && route.segments[2] === 'train') return <TrainerScreen def={report.def} games={report.games} />;
   if (id && report) return <OpeningDetail report={report} />;
 
   const covered = reports.reduce((s, r) => s + r.games.length, 0);
@@ -135,6 +138,8 @@ function OpeningDetail({ report }: { report: RepertoireReport }) {
               <Stat label="opening accuracy" value={total.openingAccuracy?.toFixed(1) ?? '–'} />
               <Stat label="win chance after move 10" value={winLabel(total.winAt10)} />
             </div>
+
+            <TrainCard repId={def.id} line={lineFilter} />
 
             <SectionTitle>Lines</SectionTitle>
             <Card className="p-0">
@@ -287,5 +292,42 @@ function MistakeList({ mistakes, repId }: { mistakes: RepertoireReport['mistakes
         ))}
       </ul>
     </>
+  );
+}
+
+function TrainCard({ repId, line }: { repId: string; line: string | null }) {
+  const [counts, setCounts] = useState<{ learned: number; due: number } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void loadCards(repId).then((m) => {
+      const now = Date.now();
+      if (alive) setCounts({ learned: m.size, due: [...m.values()].filter((c) => c.due <= now).length });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [repId]);
+  const q = line ? `line=${encodeURIComponent(line)}` : '';
+  return (
+    <div className="mt-4 rounded-2xl bg-accent/10 p-4 ring-1 ring-accent/20">
+      <div className="font-semibold">🎯 Learn the best moves{line ? `: ${line}` : ''}</div>
+      <p className="mt-1 text-sm text-[#d6d4d1]">
+        The app plays your opponents’ moves (the ones they really play against you, plus Stockfish’s main replies) and you answer with the best move, up to move 10.
+        New moves are shown first, then you repeat them over the following days.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <button onClick={() => navigate(`/openings/${repId}/train${q ? `?${q}` : ''}`)} className="h-11 flex-1 rounded-xl bg-accent font-semibold text-[#14200c] active:opacity-80">
+          Train
+        </button>
+        <button
+          onClick={() => navigate(`/openings/${repId}/train?mode=review${q ? `&${q}` : ''}`)}
+          disabled={!counts?.due}
+          className="h-11 flex-1 rounded-xl bg-surface-2 text-sm disabled:opacity-40"
+        >
+          Review{counts ? ` (${counts.due} due)` : ''}
+        </button>
+      </div>
+      {counts && counts.learned > 0 && <div className="mt-2 text-xs text-muted">{counts.learned} positions learned so far</div>}
+    </div>
   );
 }

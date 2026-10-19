@@ -12,6 +12,8 @@ export interface SearchResult {
   best?: string;
   pv: string[];
   depth: number;
+  /** With multiPv > 1: the top lines, best first (lines[0] matches score/pv). */
+  lines?: { score: EngineScore; pv: string[] }[];
 }
 
 export interface SearchOptions {
@@ -19,6 +21,8 @@ export interface SearchOptions {
   priority?: number; // higher runs first
   signal?: AbortSignal;
   onInfo?: (r: SearchResult) => void;
+  /** Number of candidate lines to compute (default 1). */
+  multiPv?: number;
 }
 
 interface Job {
@@ -119,9 +123,15 @@ class Engine {
       return;
     }
     const cur = this.current;
+    const multi = new Map<number, { depth: number; score: EngineScore; pv: string[] }>();
     this.lineHandler = (line) => {
       if (line.startsWith('info') && line.includes(' pv ') && !line.includes('bound')) {
-        const r = parseInfo(line);
+        const m = parseInfoMulti(line);
+        if (m && m.multipv > 1) {
+          multi.set(m.multipv, m);
+          return;
+        }
+        const r = m && m.multipv === 1 ? { score: m.score, pv: m.pv, best: m.pv[0], depth: m.depth } : null;
         if (r && (!cur.last || r.depth >= cur.last.depth)) {
           cur.last = r;
           if (!cur.aborted) job.opts.onInfo?.(r);
@@ -133,17 +143,23 @@ class Engine {
         if (cur.aborted) job.reject(new AbortError());
         else {
           const res: SearchResult = cur.last ?? { score: { cp: 0 }, pv: [], depth: 0 };
-          job.resolve({ ...res, best: best && best !== '(none)' ? best : res.pv[0] });
+          const n = job.opts.multiPv ?? 1;
+          const lines =
+            n > 1
+              ? [{ score: res.score, pv: res.pv }, ...[...multi.entries()].sort((a, b) => a[0] - b[0]).filter(([k]) => k <= n).map(([, v]) => ({ score: v.score, pv: v.pv }))]
+              : undefined;
+          job.resolve({ ...res, best: best && best !== '(none)' ? best : res.pv[0], lines });
         }
         void this.pump();
       }
     };
+    this.worker!.postMessage(`setoption name MultiPV value ${job.opts.multiPv ?? 1}`);
     this.worker!.postMessage(`position fen ${job.fen}`);
     this.worker!.postMessage(`go depth ${job.opts.depth}`);
   }
 }
 
-function parseInfo(line: string): SearchResult | null {
+function parseInfoMulti(line: string) {
   const t = line.split(' ');
   let depth = 0;
   let multipv = 1;
@@ -168,8 +184,8 @@ function parseInfo(line: string): SearchResult | null {
         break;
     }
   }
-  if (multipv !== 1 || (score.cp === undefined && score.mate === undefined)) return null;
-  return { score, pv, best: pv[0], depth };
+  if (score.cp === undefined && score.mate === undefined) return null;
+  return { multipv, score, pv, depth };
 }
 
 let instance: Engine | null = null;

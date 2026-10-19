@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Game, GameAnalysis, Puzzle, Settings } from '../types/app';
+import type { BookEntry, DrillCard, Game, GameAnalysis, Puzzle, Settings } from '../types/app';
 import { DEFAULT_DEPTH, USERNAME } from '../config';
 
 export interface ArchiveMeta {
@@ -16,6 +16,10 @@ interface ChessDB extends DBSchema {
   analyses: { key: string; value: GameAnalysis; indexes: { endTime: number } };
   puzzles: { key: string; value: Puzzle; indexes: { due: number } };
   meta: { key: string; value: unknown };
+  /** Engine opinion per position (key = FEN without move counters). */
+  book: { key: string; value: BookEntry };
+  /** Opening-trainer progress per position where it's my move. */
+  drill: { key: string; value: DrillCard; indexes: { rep: string } };
 }
 
 let dbPromise: Promise<IDBPDatabase<ChessDB>> | null = null;
@@ -23,13 +27,19 @@ let dbPromise: Promise<IDBPDatabase<ChessDB>> | null = null;
 export function db(): Promise<IDBPDatabase<ChessDB>> {
   if (!dbPromise) {
     // One database per username so changing config.ts starts fresh.
-    dbPromise = openDB<ChessDB>(`chess-review-${USERNAME.toLowerCase()}`, 1, {
-      upgrade(d) {
-        d.createObjectStore('games', { keyPath: 'id' }).createIndex('endTime', 'endTime');
-        d.createObjectStore('archives', { keyPath: 'url' });
-        d.createObjectStore('analyses', { keyPath: 'gameId' }).createIndex('endTime', 'endTime');
-        d.createObjectStore('puzzles', { keyPath: 'id' }).createIndex('due', 'due');
-        d.createObjectStore('meta');
+    dbPromise = openDB<ChessDB>(`chess-review-${USERNAME.toLowerCase()}`, 2, {
+      upgrade(d, oldVersion) {
+        if (oldVersion < 1) {
+          d.createObjectStore('games', { keyPath: 'id' }).createIndex('endTime', 'endTime');
+          d.createObjectStore('archives', { keyPath: 'url' });
+          d.createObjectStore('analyses', { keyPath: 'gameId' }).createIndex('endTime', 'endTime');
+          d.createObjectStore('puzzles', { keyPath: 'id' }).createIndex('due', 'due');
+          d.createObjectStore('meta');
+        }
+        if (oldVersion < 2) {
+          d.createObjectStore('book', { keyPath: 'key' });
+          d.createObjectStore('drill', { keyPath: 'id' }).createIndex('rep', 'rep');
+        }
       },
     });
   }
@@ -114,3 +124,17 @@ export async function saveSettings(s: Settings) {
   await setMeta('settings', s);
 }
 
+
+// ---- opening book cache & trainer progress ----
+export async function getBookEntry(key: string) {
+  return (await db()).get('book', key);
+}
+export async function putBookEntry(e: BookEntry) {
+  await (await db()).put('book', e);
+}
+export async function getDrillCards(rep: string): Promise<DrillCard[]> {
+  return (await db()).getAllFromIndex('drill', 'rep', rep);
+}
+export async function putDrillCard(c: DrillCard) {
+  await (await db()).put('drill', c);
+}

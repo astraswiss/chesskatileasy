@@ -132,3 +132,26 @@ export interface Settings {
   autoAnalyze: boolean;
   autoMaxPerSession: number;
 }
+
+/** Cached engine opinion for one position. */
+export interface BookEntry {
+  key: string; // FEN without halfmove/fullmove counters
+  depth: number;
+  /** Top candidate moves, best first; win = side-to-move's win% (0-100). */
+  moves: { uci: string; san: string; win: number }[];
+}
+
+/** Opening-trainer card: one position where it's my move in a repertoire. */
+export interface DrillCard {
+  id: string; // rep:fenKey
+  rep: string;
+  fenKey: string;
+  fen: string;
+  path: string[]; // SAN moves from the start position
+  answer: string; // SAN of the move to play
+  stage: number; // spaced-repetition stage
+  due: number;
+  seen: number;
+  correct: number;
+  wrong: number;
+}
