@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { buildCoachReport, type CoachReport, type Weakness } from '../lib/coach';
+import { buildCoachReport, type CoachReport, type Occurrence, type Weakness } from '../lib/coach';
+import { buildProgress, buildStrengths, type ProgressReport, type Strength } from '../lib/progress';
 import { useAnalyzedGames } from '../hooks/useAnalyzedGames';
 import { navigate, useRoute } from '../lib/router';
 import { Header } from '../components/Header';
@@ -16,7 +17,9 @@ let savedRange: 30 | 100 = 30;
 function useReport(range: number) {
   const { pairs, loading } = useAnalyzedGames();
   const report = useMemo(() => buildCoachReport(pairs.slice(0, range)), [pairs, range]);
-  return { report, loading, total: pairs.length };
+  const progress = useMemo(() => buildProgress(pairs, range), [pairs, range]);
+  const good = useMemo(() => buildStrengths(pairs.slice(0, range)), [pairs, range]);
+  return { report, progress, good, loading, total: pairs.length };
 }
 
 function RangeToggle({ range, setRange }: { range: 30 | 100; setRange: (r: 30 | 100) => void }) {
@@ -43,10 +46,11 @@ export function CoachScreen() {
   const route = useRoute();
   const [range, setRangeState] = useState<30 | 100>(savedRange);
   const setRange = (r: 30 | 100) => setRangeState((savedRange = r));
-  const { report, loading, total } = useReport(range);
+  const { report, progress, good, loading, total } = useReport(range);
   const tag = route.segments[1] === 'tag' ? (route.segments[2] as PatternTag) : null;
 
   if (tag) return <WeaknessDetail tag={tag} report={report} loading={loading} />;
+  if (route.segments[1] === 'brilliant') return <BrilliantDetail moves={good.brilliants} loading={loading} />;
 
   return (
     <div className="pb-tabbar">
@@ -58,7 +62,11 @@ export function CoachScreen() {
         ) : report.n === 0 ? (
           <EmptyState title="No analyzed games yet">Games are analyzed automatically in the background, or open one and tap Analyze.</EmptyState>
         ) : (
-          <CoachBody report={report} />
+          <>
+            <ProgressSection progress={progress} />
+            <StrengthsSection strengths={good.strengths} />
+            <CoachBody report={report} />
+          </>
         )}
       </main>
     </div>
@@ -247,6 +255,105 @@ function WeaknessDetail({ tag, report, loading }: { tag: PatternTag; report: Coa
               })}
             </ul>
           </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function ProgressSection({ progress }: { progress: ProgressReport | null }) {
+  return (
+    <>
+      <SectionTitle>Your progress</SectionTitle>
+      {!progress ? (
+        <Card className="text-sm text-muted">Analyze at least 10 games to compare your recent games with earlier ones.</Card>
+      ) : (
+        <Card className="flex flex-col gap-3">
+          <div className="text-xs text-muted">
+            Last {progress.recent} games compared with the {progress.previous} before
+          </div>
+          {progress.items.length === 0 ? (
+            <div className="text-sm text-[#d6d4d1]">No big changes yet: your level has been steady. Keep going!</div>
+          ) : (
+            progress.items.slice(0, 6).map((it) => (
+              <div key={it.key} className="flex items-start gap-3">
+                <span
+                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                    it.good ? 'bg-win/15 text-win' : 'bg-[#e58f2a]/15 text-[#e58f2a]'
+                  }`}
+                  aria-label={it.good ? 'Improved' : 'Declined'}
+                >
+                  {it.good ? '↑' : '↓'}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{it.title}</div>
+                  <div className="text-sm text-muted">{it.text}</div>
+                </div>
+              </div>
+            ))
+          )}
+        </Card>
+      )}
+    </>
+  );
+}
+
+function StrengthsSection({ strengths }: { strengths: Strength[] }) {
+  if (strengths.length === 0) return null;
+  return (
+    <>
+      <SectionTitle>Strengths</SectionTitle>
+      <div className="flex flex-col gap-2">
+        {strengths.map((st) => {
+          const body = (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-win/15 text-xs text-win">★</span>
+                <span className="font-medium">{st.title}</span>
+                {st.link && <span className="ml-auto text-sm text-accent">→</span>}
+              </div>
+              <p className="mt-1.5 text-sm leading-relaxed text-[#d6d4d1]">{st.text}</p>
+            </>
+          );
+          return st.link ? (
+            <button key={st.key} onClick={() => navigate(st.link!)} className="rounded-2xl bg-surface p-4 text-left shadow-soft active:bg-surface-2">
+              {body}
+            </button>
+          ) : (
+            <Card key={st.key}>{body}</Card>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function BrilliantDetail({ moves, loading }: { moves: Occurrence[]; loading: boolean }) {
+  return (
+    <div className="pb-tabbar">
+      <Header title="Brilliant moves" back sub="Sound sacrifices you found" />
+      <main className="mx-auto max-w-3xl px-3 pt-3">
+        {loading ? (
+          <div className="flex justify-center py-16"><Spinner className="h-8 w-8" /></div>
+        ) : moves.length === 0 ? (
+          <EmptyState title="No brilliant moves in this range yet" />
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {moves.map((o) => (
+              <li key={`${o.gameId}:${o.ply}`}>
+                <button
+                  onClick={() => navigate(`/game/${o.gameId}?ply=${o.ply + 1}`)}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-surface p-3 text-left shadow-soft active:bg-surface-2"
+                >
+                  <ClassIcon c="brilliant" size={28} />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{Math.floor(o.ply / 2) + 1}{o.move.color === 'white' ? '.' : '...'} {o.move.san}</div>
+                    <div className="truncate text-xs text-muted">vs {o.game.oppName} · {formatDate(o.game.endTime)} · {o.move.phase}</div>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </main>
     </div>
