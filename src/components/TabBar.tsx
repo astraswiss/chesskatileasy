@@ -1,9 +1,10 @@
 import { navigate, useRoute } from '../lib/router';
-import { IconCoach, IconGames, IconPuzzle, IconStats } from './Icons';
+import { IconBook, IconCoach, IconGames, IconPuzzle, IconStats } from './Icons';
 
 const tabs = [
   { path: '/', label: 'Games', Icon: IconGames },
   { path: '/coach', label: 'Coach', Icon: IconCoach },
+  { path: '/openings', label: 'Openings', Icon: IconBook },
   { path: '/puzzles', label: 'Puzzles', Icon: IconPuzzle },
   { path: '/stats', label: 'Stats', Icon: IconStats },
 ];

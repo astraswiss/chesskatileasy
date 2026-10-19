@@ -4,7 +4,9 @@ import type { Arrow } from 'react-chessboard';
 import type { PatternTag, Puzzle } from '../types/app';
 import { getAllPuzzles } from '../lib/db';
 import { isDue, recordAttempt } from '../lib/puzzles';
-import { navigate } from '../lib/router';
+import { navigate, useRoute } from '../lib/router';
+import { useGames } from '../lib/games';
+import { REPERTOIRE, repertoireOf } from '../lib/repertoire';
 import { useAnalysisIndex } from '../lib/analysisIndex';
 import { getEngine, PRIORITY } from '../engine/engine';
 import { terminalEval } from '../analysis/build';
@@ -36,6 +38,12 @@ export function PuzzlesScreen() {
   const [puzzles, setPuzzles] = useState<Puzzle[] | null>(null);
   const [tag, setTagState] = useState<PatternTag | 'all'>(savedTag);
   const setTag = (t: PatternTag | 'all') => setTagState((savedTag = t));
+  // Optional opening filter (from the Openings page): #/puzzles?rep=<id>
+  const route = useRoute();
+  const repId = route.query.get('rep');
+  const rep = REPERTOIRE.find((r) => r.id === repId);
+  const { games } = useGames();
+  const repGames = useMemo(() => (rep ? new Set(games.filter((g) => repertoireOf(g)?.id === rep.id).map((g) => g.id)) : null), [games, rep]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const { version } = useAnalysisIndex();
 
@@ -46,7 +54,10 @@ export function PuzzlesScreen() {
   }, [version]);
 
   const now = Date.now();
-  const filtered = useMemo(() => (puzzles ?? []).filter((p) => tag === 'all' || p.tags.includes(tag)), [puzzles, tag]);
+  const filtered = useMemo(
+    () => (puzzles ?? []).filter((p) => (tag === 'all' || p.tags.includes(tag)) && (!repGames || repGames.has(p.gameId))),
+    [puzzles, tag, repGames],
+  );
   const queue = useMemo(
     () =>
       filtered
@@ -83,6 +94,12 @@ export function PuzzlesScreen() {
     <div className="pb-tabbar">
       <Header title="Puzzles" sub={puzzles ? `${stats.due} due · ${stats.solved} solved · ${stats.failed} to review · ${stats.total} total` : undefined} />
       <main className="mx-auto max-w-xl px-3 pt-3">
+        {rep && (
+          <div className="mb-3 flex items-center gap-2 rounded-2xl bg-accent/10 px-3 py-2 text-sm">
+            <span className="flex-1">Only positions from your <b>{rep.name}</b> games</span>
+            <button onClick={() => navigate('/puzzles', true)} className="h-8 rounded-full bg-surface px-3 text-xs">Show all</button>
+          </div>
+        )}
         {tagsPresent.length > 0 && (
           <div className="no-scrollbar -mx-3 mb-3 flex gap-2 overflow-x-auto px-3">
             <Chip on={tag === 'all'} onClick={() => setTag('all')}>All</Chip>

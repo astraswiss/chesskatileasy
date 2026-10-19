@@ -10,6 +10,9 @@ export const IconGames = (p: P) => (
 export const IconCoach = (p: P) => (
   <svg {...base} {...p}><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" /><path d="M9 21h6" /></svg>
 );
+export const IconBook = (p: P) => (
+  <svg {...base} {...p}><path d="M4 5.5C6.5 4.5 9.5 4.5 12 6c2.5-1.5 5.5-1.5 8-.5v13c-2.5-1-5.5-1-8 .5-2.5-1.5-5.5-1.5-8-.5z" /><path d="M12 6v13.5" /></svg>
+);
 export const IconPuzzle = (p: P) => (
   <svg {...base} {...p}><path d="M10 3h4v3a2 2 0 1 0 4 0V3h3v7h-3a2 2 0 1 0 0 4h3v7h-7v-3a2 2 0 1 0-4 0v3H3v-7h3a2 2 0 1 0 0-4H3V3h7z" /></svg>
 );

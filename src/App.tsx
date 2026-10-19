@@ -15,6 +15,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 const ReviewScreen = lazy(() => import('./screens/ReviewScreen').then((m) => ({ default: m.ReviewScreen })));
 const CoachScreen = lazy(() => import('./screens/CoachScreen').then((m) => ({ default: m.CoachScreen })));
 const PuzzlesScreen = lazy(() => import('./screens/PuzzlesScreen').then((m) => ({ default: m.PuzzlesScreen })));
+const OpeningsScreen = lazy(() => import('./screens/OpeningsScreen').then((m) => ({ default: m.OpeningsScreen })));
 const StatsScreen = lazy(() => import('./screens/StatsScreen').then((m) => ({ default: m.StatsScreen })));
 
 let booted = false;
@@ -37,6 +38,9 @@ export default function App() {
   switch (top) {
     case 'coach':
       screen = <CoachScreen />;
+      break;
+    case 'openings':
+      screen = <OpeningsScreen />;
       break;
     case 'puzzles':
       screen = <PuzzlesScreen />;

@@ -5,7 +5,7 @@ const DAY = 86_400_000;
 /** Failed puzzles come back after 1, then 3, then 7 days. */
 export const INTERVALS_DAYS = [1, 3, 7];
 
-/** Positions where I blundered or missed a tactic become puzzles. */
+/** Positions where I blundered, missed a tactic, or made a real mistake in the opening become puzzles. */
 export function extractPuzzles(game: Game, a: GameAnalysis): Puzzle[] {
   const now = Date.now();
   return a.moves
@@ -15,7 +15,9 @@ export function extractPuzzles(game: Game, a: GameAnalysis): Puzzle[] {
         m.bestUci &&
         m.bestSan &&
         m.classification !== 'best' &&
-        (m.classification === 'blunder' || m.tags.includes('missed-tactic')),
+        (m.classification === 'blunder' ||
+          m.tags.includes('missed-tactic') ||
+          (m.phase === 'opening' && (m.classification === 'mistake' || m.classification === 'miss'))),
     )
     .map((m) => ({
       id: `${game.id}:${m.ply}`,
@@ -74,7 +76,7 @@ export async function recordAttempt(p: Puzzle, solved: boolean, now = Date.now()
   return next;
 }
 
-const BACKFILL_VERSION = 1;
+const BACKFILL_VERSION = 2; // bump when extractPuzzles picks new kinds of positions
 
 /** Creates puzzles for analyses saved before puzzle extraction existed (runs once). */
 export async function backfillPuzzles() {
