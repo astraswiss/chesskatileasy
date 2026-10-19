@@ -310,7 +310,7 @@ function TrainCard({ repId, line }: { repId: string; line: string | null }) {
     };
   }, [repId]);
   const rep = REPERTOIRE.find((r) => r.id === repId);
-  const isVariation = !!line && !!rep?.lines.some((l) => l.name === line && l.moves.length > 0);
+  const isVariation = !!line && !!rep?.lines.some((l) => l.name === line && l.moves.length > 0 && l.train !== false);
   return (
     <div className="mt-4 rounded-2xl bg-accent/10 p-4 ring-1 ring-accent/20">
       <div className="font-semibold">🎯 Learn the best moves</div>

@@ -9,6 +9,8 @@ export const AUTO_DEPTH = 12;
 /**
  * Your opening repertoire. Games are matched by color and by the first moves (SAN).
  * `lines` name the variations: the longest matching move prefix (after `root`) wins.
+ * `train: false` keeps a line in the statistics but hides it from the trainer (generic
+ * buckets whose main line would just duplicate a more specific variation).
  */
 export const REPERTOIRE: RepertoireDef[] = [
   {
@@ -17,7 +19,7 @@ export const REPERTOIRE: RepertoireDef[] = [
     color: 'white',
     root: ['d4'],
     lines: [
-      { name: "Queen's Gambit", moves: ['d5', 'c4'] },
+      { name: "Queen's Gambit", moves: ['d5', 'c4'], train: false },
       { name: "Queen's Gambit Accepted", moves: ['d5', 'c4', 'dxc4'] },
       { name: "Queen's Gambit Declined", moves: ['d5', 'c4', 'e6'] },
       { name: 'QGD Exchange', moves: ['d5', 'c4', 'e6', 'cxd5'] },
@@ -32,7 +34,7 @@ export const REPERTOIRE: RepertoireDef[] = [
       { name: 'Albin Countergambit', moves: ['d5', 'c4', 'e5'] },
       { name: 'Chigorin Defense', moves: ['d5', 'c4', 'Nc6'] },
       { name: 'Baltic Defense', moves: ['d5', 'c4', 'Bf5'] },
-      { name: '1.d4 d5 without 2.c4', moves: ['d5'] },
+      { name: '1.d4 d5 without 2.c4', moves: ['d5'], train: false },
       { name: 'Indian defenses (1...Nf6)', moves: ['Nf6'] },
       { name: 'Dutch Defense', moves: ['f5'] },
       { name: 'Other replies to 1.d4', moves: [] },
@@ -48,8 +50,8 @@ export const REPERTOIRE: RepertoireDef[] = [
       { name: 'Advance Variation', moves: ['d4', 'd5', 'e5'] },
       { name: 'Exchange Variation', moves: ['d4', 'd5', 'exd5', 'cxd5'] },
       { name: 'Panov Attack', moves: ['d4', 'd5', 'exd5', 'cxd5', 'c4'] },
-      { name: 'Main line (3.Nc3)', moves: ['d4', 'd5', 'Nc3'] },
-      { name: 'Main line (3.Nd2)', moves: ['d4', 'd5', 'Nd2'] },
+      { name: 'Main line (3.Nc3)', moves: ['d4', 'd5', 'Nc3'], train: false },
+      { name: 'Main line (3.Nd2)', moves: ['d4', 'd5', 'Nd2'], train: false },
       { name: 'Classical (4...Bf5)', moves: ['d4', 'd5', 'Nc3', 'dxe4', 'Nxe4', 'Bf5'] },
       { name: 'Classical (4...Bf5)', moves: ['d4', 'd5', 'Nd2', 'dxe4', 'Nxe4', 'Bf5'] },
       { name: 'Karpov (4...Nd7)', moves: ['d4', 'd5', 'Nc3', 'dxe4', 'Nxe4', 'Nd7'] },
@@ -69,5 +71,5 @@ export interface RepertoireDef {
   name: string;
   color: 'white' | 'black';
   root: string[];
-  lines: { name: string; moves: string[] }[];
+  lines: { name: string; moves: string[]; train?: boolean }[];
 }

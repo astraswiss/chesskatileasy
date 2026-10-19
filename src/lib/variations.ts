@@ -15,7 +15,7 @@ export function variationsOf(def: RepertoireDef): Variation[] {
   const seen = new Set<string>();
   const out: Variation[] = [];
   for (const l of def.lines) {
-    if (l.moves.length === 0 || seen.has(l.name)) continue;
+    if (l.moves.length === 0 || l.train === false || seen.has(l.name)) continue;
     seen.add(l.name);
     out.push({ name: l.name, moves: [...def.root, ...l.moves] });
   }

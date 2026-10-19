@@ -37,3 +37,14 @@ describe('repertoire matching', () => {
     expect(lineOf(ck, game('e4 c6 b3', 'black'))).toBe('Caro-Kann (other)');
   });
 });
+
+describe('trainer variations', async () => {
+  const { variationsOf } = await import('../variations');
+  it('hides generic buckets that would duplicate real variations', () => {
+    const names = variationsOf(qg).map((v) => v.name);
+    expect(names).not.toContain("Queen's Gambit");
+    expect(names).not.toContain('1.d4 d5 without 2.c4');
+    expect(names).toContain("Queen's Gambit Accepted");
+    expect(variationsOf(ck).map((v) => v.name)).not.toContain('Main line (3.Nc3)');
+  });
+});
