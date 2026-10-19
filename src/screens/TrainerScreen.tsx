@@ -19,6 +19,7 @@ import {
 } from '../lib/book';
 import { PRIORITY } from '../engine/engine';
 import { navigate, useRoute } from '../lib/router';
+import { getTrainMoves, mainLineMove, setTrainMoves, variationMastery, variationsOf, type Variation } from '../lib/variations';
 import { Header } from '../components/Header';
 import { Board } from '../components/Board';
 import { Card, Chip, Spinner } from '../components/ui';
@@ -34,8 +35,13 @@ type Phase =
   | { kind: 'done' }
   | { kind: 'error'; message: string };
 
-const MOVE_LIMITS = [8, 10, 12] as const;
-let savedMoves: number = 10;
+export const MOVE_LIMITS = [8, 10, 12] as const;
+
+function weightedIndex(weights: number[]): number {
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < weights.length; i++) if ((r -= weights[i]) <= 0) return i;
+  return 0;
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const startsWith = (moves: string[], prefix: string[]) => prefix.every((m, i) => moves[i] === m);
@@ -51,9 +57,12 @@ function uciArrow(fen: string, san: string, color: string): Arrow | null {
 
 export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGame[] }) {
   const route = useRoute();
-  const mode = route.query.get('mode') === 'review' ? 'review' : 'learn';
+  const modeParam = route.query.get('mode');
+  // learn = mixed lines with random replies · line = one variation's main line · random = a random variation
+  const mode = modeParam === 'review' || modeParam === 'line' || modeParam === 'random' ? modeParam : 'learn';
+  const fixedLine = mode === 'line' || mode === 'random';
   const lineName = route.query.get('line');
-  const [maxMoves, setMaxMovesState] = useState(savedMoves);
+  const [maxMoves, setMaxMovesState] = useState(getTrainMoves);
   const maxMovesRef = useRef(maxMoves);
   maxMovesRef.current = maxMoves;
   // Games change while background analysis runs; read them through a ref so the session isn't restarted.
@@ -61,9 +70,12 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
   gamesRef.current = games;
 
   const startPath = useMemo(() => {
+    if (fixedLine) return []; // variations are trained from move 1
     const line = def.lines.find((l) => l.name === lineName);
     return [...def.root, ...(line?.moves ?? [])];
-  }, [def, lineName]);
+  }, [def, lineName, fixedLine]);
+  const variation = useRef<Variation | null>(null);
+  const [variationName, setVariationName] = useState<string | null>(null);
 
   const [path, setPath] = useState<string[]>(startPath);
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
@@ -71,7 +83,8 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
   const [hint, setHint] = useState<string | null>(null);
   const [run, setRun] = useState(0); // bump to start a new line
   const setMaxMoves = (n: number) => {
-    setMaxMovesState((savedMoves = n));
+    setTrainMoves(n);
+    setMaxMovesState(n);
     setRun((r) => r + 1);
   };
   const cards = useRef<Map<string, DrillCard>>(new Map());
@@ -97,6 +110,19 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
       setHint(null);
       if (p.length >= maxMovesRef.current * 2) return setPhase({ kind: 'done' });
       const fen = fenAfter(p);
+      const v = variation.current;
+      // Inside a variation's defining moves no engine is needed: the moves are given.
+      if (v && p.length < v.moves.length) {
+        entryRef.current = null;
+        const san = v.moves[p.length];
+        if (myTurnAt(p)) setPhase(cards.current.has(fenKey(fen)) ? { kind: 'quiz', answer: san } : { kind: 'learn', answer: san });
+        else {
+          setPhase({ kind: 'opponent' });
+          await sleep(450);
+          if (token === alive.current) void advance([...p, san], token);
+        }
+        return;
+      }
       setPhase({ kind: 'thinking' });
       let entry: BookEntry;
       try {
@@ -110,12 +136,12 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
       if (entry.moves.length === 0) return setPhase({ kind: 'done' });
       if (myTurnAt(p)) {
         const usual = [...nextMovesInGames(p).entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-        const answer = mainMove(entry, usual)!;
+        const answer = (v ? mainLineMove(def, v, gamesRef.current, p, entry) : mainMove(entry, usual))!;
         setPhase(cards.current.has(fenKey(fen)) ? { kind: 'quiz', answer } : { kind: 'learn', answer });
         // Warm the cache for the opponent's next position while you think.
         void getBook(fenAfter([...p, answer]), PRIORITY.analysis).catch(() => {});
       } else {
-        const san = pickWeighted(opponentReplies(entry, nextMovesInGames(p)));
+        const san = v ? mainLineMove(def, v, gamesRef.current, p, entry) : pickWeighted(opponentReplies(entry, nextMovesInGames(p)));
         if (!san) return setPhase({ kind: 'done' });
         setPhase({ kind: 'opponent' });
         await sleep(450);
@@ -123,7 +149,7 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
         void advance([...p, san], token);
       }
     },
-    [myTurnAt, nextMovesInGames],
+    [def, myTurnAt, nextMovesInGames],
   );
 
   const nextReview = useCallback(
@@ -143,9 +169,21 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
     const token = ++alive.current;
     setStats({ learned: 0, correct: 0, wrong: 0 });
     setPhase({ kind: 'loading' });
-    void loadCards(def.id).then((m) => {
+    void loadCards(def.id).then(async (m) => {
       if (token !== alive.current) return;
       cards.current = m;
+      if (fixedLine) {
+        const all = variationsOf(def);
+        let v = all.find((x) => x.name === lineName);
+        if (mode === 'random' || !v) {
+          // Prefer variations you know least.
+          const ms = await Promise.all(all.map((x) => variationMastery(def, x, gamesRef.current, m, maxMovesRef.current * 2)));
+          if (token !== alive.current) return;
+          v = all[weightedIndex(ms.map((x) => (x.complete ? 1 : 1 + 3 * (x.total - x.known))))];
+        }
+        variation.current = v ?? null;
+        setVariationName(v?.name ?? null);
+      }
       const now = Date.now();
       const due = [...m.values()].filter((c) => c.due <= now && startsWith(c.path, startPath)).sort((a, b) => a.due - b.due);
       setDueCount(due.length);
@@ -157,7 +195,7 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
     return () => {
       alive.current++;
     };
-  }, [def.id, mode, startPath, run, advance, nextReview]);
+  }, [def, mode, fixedLine, lineName, startPath, run, advance, nextReview]);
 
   const fen = useMemo(() => fenAfter(path), [path]);
 
@@ -243,13 +281,17 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
 
   const canMove = phase.kind === 'learn' || phase.kind === 'quiz' || phase.kind === 'wrong';
   const restart = () => setRun((r) => r + 1);
-  const title = lineName ?? def.name;
+  const title = variationName ?? lineName ?? def.name;
 
   return (
     <div className="pb-tabbar">
-      <Header title={mode === 'review' ? `Review · ${title}` : `Train · ${title}`} back sub={`As ${def.color} · up to move ${maxMoves}`} />
+      <Header
+        title={mode === 'review' ? `Review · ${title}` : mode === 'random' ? `🎲 ${title}` : `Train · ${title}`}
+        back
+        sub={`${def.name} · as ${def.color} · up to move ${maxMoves}`}
+      />
       <main className="mx-auto max-w-xl px-3 pt-3">
-        {mode === 'learn' && (
+        {mode !== 'review' && (
           <div className="mb-3 flex items-center gap-2">
             <span className="text-xs text-muted">Moves:</span>
             {MOVE_LIMITS.map((n) => (
@@ -303,14 +345,16 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
                 {stats.correct} correct · {stats.wrong} wrong
               </div>
               <div className="mt-3 flex gap-2">
-                {mode === 'learn' ? (
-                  <button onClick={restart} className="h-11 flex-1 rounded-xl bg-accent font-semibold text-[#14200c]">Next line</button>
+                {mode !== 'review' ? (
+                  <button onClick={restart} className="h-11 flex-1 rounded-xl bg-accent font-semibold text-[#14200c]">
+                    {mode === 'random' ? '🎲 Next random variation' : mode === 'line' ? 'Again' : 'Next line'}
+                  </button>
                 ) : (
                   <button onClick={() => navigate(`/openings/${def.id}/train${lineName ? `?line=${encodeURIComponent(lineName)}` : ''}`, true)} className="h-11 flex-1 rounded-xl bg-accent font-semibold text-[#14200c]">
                     Learn new lines
                   </button>
                 )}
-                <button onClick={() => navigate(`/openings/${def.id}`)} className="h-11 rounded-xl bg-surface-2 px-4 text-sm">Done</button>
+                <button onClick={() => navigate(`/openings/${def.id}/trainer`)} className="h-11 rounded-xl bg-surface-2 px-4 text-sm">Done</button>
               </div>
             </div>
           )}
@@ -320,8 +364,10 @@ export function TrainerScreen({ def, games }: { def: RepertoireDef; games: RepGa
               <span>
                 {stats.learned} learned · {stats.correct} ✓ · {stats.wrong} ✗{mode === 'learn' && dueCount > 0 ? ` · ${dueCount} due for review` : ''}
               </span>
-              {mode === 'learn' && (
-                <button onClick={restart} className="rounded-full bg-surface-2 px-3 py-1.5 text-[#d6d4d1]">↺ New line</button>
+              {mode !== 'review' && (
+                <button onClick={restart} className="rounded-full bg-surface-2 px-3 py-1.5 text-[#d6d4d1]">
+                  {mode === 'random' ? '🎲 Another' : mode === 'line' ? '↺ Restart' : '↺ New line'}
+                </button>
               )}
             </div>
           )}

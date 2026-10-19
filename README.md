@@ -12,6 +12,11 @@ Stockfish (WASM, in a Web Worker), and everything is cached in IndexedDB.
   openings, time management, and trends.
 - **Puzzles**: built from your own blunders and missed tactics, with spaced repetition (1 → 3 → 7 days).
 - **Stats**: win rates, rating history, openings, and accuracy over time.
+- **Openings**: your repertoire (Queen's Gambit as White, Caro-Kann as Black by default, see `REPERTOIRE`
+  in `src/config.ts`): results per variation, an explorer of your own games, and your opening mistakes.
+- **Opening trainer**: learn Stockfish's best moves in every variation up to move 8/10/12. You can train a
+  random variation, a chosen one, or mixed lines, with spaced repetition. It also counts how many variations
+  you know 100%.
 
 ## Setup
 
