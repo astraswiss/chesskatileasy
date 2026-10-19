@@ -4,25 +4,35 @@ import { sanMoves } from './repertoire';
 import { fenAfter, fenKey, getBook, mainMove } from './book';
 import { getBookEntry } from './db';
 
+const startsWith = (moves: string[], prefix: string[]) => prefix.every((m, i) => moves[i] === m);
+
 /** A named variation trained as one fixed main line (like a course chapter). */
 export interface Variation {
   name: string;
   moves: string[]; // full defining moves from the start position (root + line)
+  /** All move sequences with this name (transpositions), including `moves`. */
+  defs: string[][];
+  /** Defining sequences of more specific variations inside this one: the main line avoids them. */
+  inner: string[][];
 }
 
 /** The named lines of a repertoire (deduplicated, without the catch-all bucket). */
 export function variationsOf(def: RepertoireDef): Variation[] {
-  const seen = new Set<string>();
-  const out: Variation[] = [];
+  const byName = new Map<string, string[][]>();
   for (const l of def.lines) {
-    if (l.moves.length === 0 || l.train === false || seen.has(l.name)) continue;
-    seen.add(l.name);
-    out.push({ name: l.name, moves: [...def.root, ...l.moves] });
+    if (l.moves.length === 0 || l.train === false) continue;
+    byName.set(l.name, [...(byName.get(l.name) ?? []), [...def.root, ...l.moves]]);
   }
-  return out;
+  const all = [...byName.entries()].map(([name, defs]) => ({ name, moves: defs[0], defs }));
+  return all.map((v) => ({
+    ...v,
+    inner: all
+      .filter((o) => o.name !== v.name)
+      .flatMap((o) => o.defs)
+      .filter((d) => v.defs.some((own) => d.length > own.length && startsWith(d, own))),
+  }));
 }
 
-const startsWith = (moves: string[], prefix: string[]) => prefix.every((m, i) => moves[i] === m);
 
 /** Opponent moves played against me at this position, by frequency. */
 export function gameReplies(games: RepGame[], path: string[]): Map<string, number> {
@@ -48,9 +58,12 @@ export function mainLineMove(def: RepertoireDef, v: Variation, games: RepGame[],
     const usual = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
     return mainMove(entry, usual);
   }
-  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
-  if (top && top[1] >= 2) return top[0];
-  return entry.moves[0]?.san;
+  // Opponent: most likely reply (seen ≥2× against me, else Stockfish's order), skipping replies
+  // that lead into a more specific variation (that one has its own entry).
+  const entersInner = (san: string) => v.inner.some((d) => d.length > path.length && startsWith(d, [...path, san]));
+  const fromGames = [...counts.entries()].filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).map(([san]) => san);
+  const candidates = [...fromGames, ...entry.moves.filter((m) => entry.moves[0].win - m.win <= 15).map((m) => m.san)];
+  return candidates.find((san) => !entersInner(san));
 }
 
 export interface Mastery {

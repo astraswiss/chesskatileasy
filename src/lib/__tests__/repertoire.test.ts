@@ -45,6 +45,26 @@ describe('trainer variations', async () => {
     expect(names).not.toContain("Queen's Gambit");
     expect(names).not.toContain('1.d4 d5 without 2.c4');
     expect(names).toContain("Queen's Gambit Accepted");
-    expect(variationsOf(ck).map((v) => v.name)).not.toContain('Main line (3.Nc3)');
+    expect(variationsOf(ck).map((v) => v.name)).toContain('Main line (3.Nc3)');
+  });
+});
+
+describe('variation main lines are distinct', async () => {
+  const { variationsOf, mainLineMove } = await import('../variations');
+  const entry = (sans: string[]) => ({ key: 'k', depth: 18, moves: sans.map((san, i) => ({ uci: '', san, win: 50 - i })) });
+  it('QGD main line avoids the Tarrasch and Semi-Slav', () => {
+    const qgd = variationsOf(qg).find((v) => v.name === "Queen's Gambit Declined")!;
+    const path = ['d4', 'd5', 'c4', 'e6', 'Nc3'];
+    expect(mainLineMove(qg, qgd, [], path, entry(['c5', 'c6', 'Nf6']))).toBe('Nf6');
+    const tarrasch = variationsOf(qg).find((v) => v.name === 'Tarrasch Defense')!;
+    expect(mainLineMove(qg, tarrasch, [], [...path, 'c5', 'cxd5'], entry(['exd5']))).toBe('exd5');
+  });
+  it('Caro-Kann Exchange avoids the Panov', () => {
+    const ex = variationsOf(ck).find((v) => v.name === 'Exchange Variation')!;
+    expect(mainLineMove(ck, ex, [], ['e4', 'c6', 'd4', 'd5', 'exd5', 'cxd5'], entry(['c4', 'Bd3']))).toBe('Bd3');
+  });
+  it('my own move choices are not trainer variations', () => {
+    const names = [...variationsOf(qg), ...variationsOf(ck)].map((v) => v.name);
+    for (const n of ['QGD Exchange', 'QGD Orthodox (4.Bg5)', 'Slav Exchange', 'Classical (4...Bf5)', 'Karpov (4...Nd7)']) expect(names).not.toContain(n);
   });
 });
